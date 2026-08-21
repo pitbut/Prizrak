@@ -1,0 +1,20 @@
+<resources>
+    <string name="app_name">Призрак</string>
+
+    <string name="status_no_permission">Нужен доступ к камере</string>
+    <string name="status_grant_permission">Разрешить</string>
+    <string name="status_idle">Наведите камеру на человека и коснитесь его на экране</string>
+    <string name="status_target_selected">Цель выбрана — нажмите «Старт», чтобы скрыть её</string>
+    <string name="status_running">Эффект активен</string>
+    <string name="status_target_lost">Цель потеряна из виду — верните её в кадр</string>
+    <string name="status_no_person_detected">Человек не найден в этой точке — коснитесь точнее</string>
+
+    <string name="action_remember">Запомнить</string>
+    <string name="action_start">Старт</string>
+    <string name="action_stop">Стоп</string>
+    <string name="action_reset">Сбросить цель</string>
+
+    <string name="mode_static">Статично</string>
+    <string name="mode_shake">Компенсация дрожания</string>
+    <string name="mode_full">Полная компенсация (эксперимент)</string>
+</resources>
