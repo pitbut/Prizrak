@@ -79,7 +79,7 @@ class InvisibilityViewModel : ViewModel() {
         }
         val target = PersonMatcher.createTarget(pose, System.currentTimeMillis())
         framesSinceSeen = 0
-        frameProcessor?.setTarget(target)
+        frameProcessor?.updateTarget(target)
         _uiState.update {
             it.copy(
                 effectState = EffectState.TARGET_SELECTED,
@@ -104,7 +104,7 @@ class InvisibilityViewModel : ViewModel() {
 
     fun onReset() {
         frameProcessor?.effectRunning = false
-        frameProcessor?.setTarget(null)
+        frameProcessor?.updateTarget(null)
         framesSinceSeen = 0
         _uiState.update {
             it.copy(

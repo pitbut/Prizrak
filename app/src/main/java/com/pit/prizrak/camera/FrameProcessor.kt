@@ -51,7 +51,7 @@ class FrameProcessor(
     @Volatile var effectRunning: Boolean = false
     @Volatile var processingMode: ProcessingMode = ProcessingMode.STATIC
 
-    fun setTarget(newTarget: PersonTarget?) {
+    fun updateTarget(newTarget: PersonTarget?) {
         target = newTarget
         history.clear()
     }
