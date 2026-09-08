@@ -47,6 +47,22 @@ Android-приложение на Kotlin + Jetpack Compose: один и тот �
 - WebSocket `wss://.../ws`: `{"type":"ride.created","ride":{...}}` /
   `{"type":"ride.updated","ride":{...}}`
 
+Формула `demandFactor` (считает только backend, авторитетный источник — сервер, не
+этот репозиторий; здесь зафиксирована для справки, чтобы не разъезжалась при правках):
+
+```js
+function demandFactor(pendingOrders, freeDrivers) {
+  const ratio = freeDrivers === 0 ? pendingOrders + 1 : pendingOrders / freeDrivers;
+  const factor = 1.0 + 0.2 * ratio;
+  const clamped = Math.min(2.5, Math.max(1.0, factor));
+  return Math.round(clamped * 10) / 10; // округление до 0.1
+}
+```
+
+`pendingOrders` — заказы в статусе `SEARCHING`. `freeDrivers` — online-водители, у
+которых **нет** поездки в статусе `ACCEPTED`/`IN_PROGRESS` прямо сейчас (не просто
+online — занятый поездкой водитель не свободен).
+
 Адрес — `network/NetworkConfig.kt` (`BASE_URL`, `WS_URL`). Если backend в итоге называет
 поля/пути иначе — поправить нужно только `NetworkConfig`/`ApiService`/`Dto`, остальной
 код (репозиторий, экраны) их не касается.
