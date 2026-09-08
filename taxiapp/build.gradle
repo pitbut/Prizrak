@@ -9,6 +9,11 @@ if (keystorePropertiesFile.exists()) {
     keystoreProperties.load(new FileInputStream(keystorePropertiesFile))
 }
 
+// Ключ Google Maps/Places/Directions — берётся из свойства Gradle (CI передаёт его
+// секретом, см. .github/workflows/build.yml) или из local.properties при локальной
+// сборке. Пустая строка — сборка не падает, просто карта не отрисуется.
+def mapsApiKey = project.findProperty('MAPS_API_KEY') ?: ''
+
 android {
     namespace 'com.pit.bahromtaxi'
     compileSdk 34
@@ -17,12 +22,14 @@ android {
         applicationId "com.pit.bahromtaxi"
         minSdk 24
         targetSdk 34
-        versionCode 2
-        versionName "0.2.0"
+        versionCode 3
+        versionName "0.3.0"
 
         vectorDrawables {
             useSupportLibrary true
         }
+
+        manifestPlaceholders += [mapsApiKey: mapsApiKey]
     }
 
     signingConfigs {
@@ -34,6 +41,16 @@ android {
                 keyPassword keystoreProperties['keyPassword']
             }
         }
+        debug {
+            // Фиксированный debug-keystore (не секрет — стандартный пароль
+            // "android"), чтобы SHA-1 не менялся между сборками в CI: иначе
+            // ограничение ключа Google Maps по отпечатку приложения ломалось бы
+            // на каждый новый прогон GitHub Actions.
+            storeFile file('debug.keystore')
+            storePassword 'android'
+            keyAlias 'androiddebugkey'
+            keyPassword 'android'
+        }
     }
 
     buildTypes {
@@ -43,6 +60,9 @@ android {
             if (keystorePropertiesFile.exists()) {
                 signingConfig signingConfigs.release
             }
+        }
+        debug {
+            signingConfig signingConfigs.debug
         }
     }
 
@@ -102,6 +122,10 @@ dependencies {
     implementation 'com.squareup.moshi:moshi-kotlin:1.15.1'
     implementation 'com.squareup.okhttp3:okhttp:4.12.0'
     implementation 'com.squareup.okhttp3:logging-interceptor:4.12.0'
+
+    implementation 'com.google.android.gms:play-services-maps:19.0.0'
+    implementation 'com.google.maps.android:maps-compose:4.4.1'
+    implementation 'com.google.android.libraries.places:places:3.5.0'
 
     debugImplementation 'androidx.compose.ui:ui-tooling'
 }

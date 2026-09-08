@@ -13,3 +13,4 @@ taxiapp/build/
 taxiapp/keystore.properties
 *.jks
 *.keystore
+!taxiapp/debug.keystore

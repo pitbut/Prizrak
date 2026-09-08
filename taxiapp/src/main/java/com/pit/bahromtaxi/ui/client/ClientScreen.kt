@@ -1,5 +1,12 @@
 package com.pit.bahromtaxi.ui.client
 
+import android.app.Activity
+import android.content.Intent
+import android.widget.Toast
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.ActivityResultLauncher
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -21,7 +28,6 @@ import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Slider
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
@@ -31,18 +37,39 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.google.android.gms.maps.model.CameraPosition
+import com.google.android.gms.maps.model.LatLng
+import com.google.android.libraries.places.api.Places
+import com.google.android.libraries.places.api.model.Place
+import com.google.android.libraries.places.widget.Autocomplete
+import com.google.android.libraries.places.widget.model.AutocompleteActivityMode
+import com.google.maps.android.compose.GoogleMap
+import com.google.maps.android.compose.Marker
+import com.google.maps.android.compose.MarkerState
+import com.google.maps.android.compose.Polyline
+import com.google.maps.android.compose.rememberCameraPositionState
 import com.pit.bahromtaxi.data.RideRepository
 import com.pit.bahromtaxi.domain.PriceBreakdown
 import com.pit.bahromtaxi.domain.Ride
 import com.pit.bahromtaxi.domain.RideStatus
+import com.pit.bahromtaxi.maps.DirectionsClient
+import com.pit.bahromtaxi.maps.MapsConfig
+import com.pit.bahromtaxi.maps.PlacePoint
 import java.util.Locale
+
+private val TASHKENT = LatLng(41.2995, 69.2401)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ClientScreen(viewModel: ClientViewModel, onBack: () -> Unit) {
+    val context = LocalContext.current
+    val apiKey = remember { MapsConfig.apiKey(context) }
+
     var registered by remember { mutableStateOf(viewModel.isRegistered) }
     val rides by viewModel.rides.collectAsState()
     val error by viewModel.lastError.collectAsState()
@@ -50,6 +77,34 @@ fun ClientScreen(viewModel: ClientViewModel, onBack: () -> Unit) {
 
     LaunchedEffect(registered) {
         if (registered) RideRepository.ensureConnected()
+    }
+
+    val fromLauncher = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+        result.data?.let { data ->
+            val place = Autocomplete.getPlaceFromIntent(data)
+            place.latLng?.let { latLng ->
+                viewModel.setFromPlace(PlacePoint(place.address ?: place.name.orEmpty(), latLng), apiKey)
+            }
+        }
+    }
+    val toLauncher = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+        result.data?.let { data ->
+            val place = Autocomplete.getPlaceFromIntent(data)
+            place.latLng?.let { latLng ->
+                viewModel.setToPlace(PlacePoint(place.address ?: place.name.orEmpty(), latLng), apiKey)
+            }
+        }
+    }
+
+    fun launchPicker(launcher: ActivityResultLauncher<Intent>) {
+        if (!Places.isInitialized()) {
+            Toast.makeText(context, "Карта недоступна: не настроен ключ Google Maps API", Toast.LENGTH_LONG).show()
+            return
+        }
+        val fields = listOf(Place.Field.ADDRESS, Place.Field.LAT_LNG, Place.Field.NAME)
+        val intent = Autocomplete.IntentBuilder(AutocompleteActivityMode.FULLSCREEN, fields)
+            .build(context as Activity)
+        launcher.launch(intent)
     }
 
     Scaffold(
@@ -71,13 +126,16 @@ fun ClientScreen(viewModel: ClientViewModel, onBack: () -> Unit) {
             }
             when {
                 !registered -> NameGate(
-                    title = "Как к вам обращаться?",
                     name = viewModel.nameInput,
                     onNameChange = { viewModel.nameInput = it },
                     loading = viewModel.registering,
                     onSubmit = { viewModel.register { registered = true } }
                 )
-                activeRide == null || activeRide.status == RideStatus.CANCELLED -> OrderForm(viewModel)
+                activeRide == null || activeRide.status == RideStatus.CANCELLED -> OrderForm(
+                    viewModel = viewModel,
+                    onPickFrom = { launchPicker(fromLauncher) },
+                    onPickTo = { launchPicker(toLauncher) }
+                )
                 else -> ActiveRideCard(activeRide, onNewOrder = { viewModel.resetOrder() })
             }
         }
@@ -85,75 +143,89 @@ fun ClientScreen(viewModel: ClientViewModel, onBack: () -> Unit) {
 }
 
 @Composable
-private fun NameGate(
-    title: String,
-    name: String,
-    onNameChange: (String) -> Unit,
-    loading: Boolean,
-    onSubmit: () -> Unit
-) {
+private fun NameGate(name: String, onNameChange: (String) -> Unit, loading: Boolean, onSubmit: () -> Unit) {
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        Text(title, fontWeight = FontWeight.Bold)
+        Text("Как к вам обращаться?", fontWeight = FontWeight.Bold)
         OutlinedTextField(
             value = name,
             onValueChange = onNameChange,
             label = { Text("Имя") },
             modifier = Modifier.fillMaxWidth()
         )
-        Button(
-            onClick = onSubmit,
-            enabled = !loading,
-            modifier = Modifier.fillMaxWidth().height(52.dp)
-        ) {
-            if (loading) {
-                CircularProgressIndicator(modifier = Modifier.height(20.dp))
-            } else {
-                Text("Продолжить")
-            }
+        Button(onClick = onSubmit, enabled = !loading, modifier = Modifier.fillMaxWidth().height(52.dp)) {
+            if (loading) CircularProgressIndicator(modifier = Modifier.height(20.dp)) else Text("Продолжить")
         }
     }
 }
 
 @Composable
-private fun OrderForm(viewModel: ClientViewModel) {
-    val price = viewModel.estimate
+private fun OrderForm(viewModel: ClientViewModel, onPickFrom: () -> Unit, onPickTo: () -> Unit) {
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        OutlinedTextField(
-            value = viewModel.fromAddress,
-            onValueChange = { viewModel.fromAddress = it },
-            label = { Text("Откуда") },
-            modifier = Modifier.fillMaxWidth()
-        )
-        OutlinedTextField(
-            value = viewModel.toAddress,
-            onValueChange = { viewModel.toAddress = it },
-            label = { Text("Куда") },
-            modifier = Modifier.fillMaxWidth()
-        )
+        AddressRow(label = "Откуда", value = viewModel.fromPlace?.address, onClick = onPickFrom)
+        AddressRow(label = "Куда", value = viewModel.toPlace?.address, onClick = onPickTo)
 
-        Text("Расстояние: ${fmt1(viewModel.distanceKm)} км")
-        Slider(
-            value = viewModel.distanceKm.toFloat(),
-            onValueChange = { viewModel.setDistance(it.toDouble()) },
-            valueRange = 1f..40f
-        )
-        Text(
-            "В песочнице расстояние задаётся вручную — в реальном приложении его посчитает " +
-                "картографический сервис по маршруту и пробкам.",
-            style = MaterialTheme.typography.bodySmall
-        )
+        RouteMap(viewModel.fromPlace, viewModel.toPlace, viewModel.route)
 
-        HorizontalDivider()
+        when {
+            viewModel.routeLoading -> Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                CircularProgressIndicator(modifier = Modifier.height(18.dp))
+                Text("Строим маршрут…", style = MaterialTheme.typography.bodySmall)
+            }
+            viewModel.routeError != null -> Text(
+                viewModel.routeError!!,
+                color = MaterialTheme.colorScheme.error,
+                style = MaterialTheme.typography.bodySmall
+            )
+        }
 
-        PriceBreakdownView(price)
+        val route = viewModel.route
+        val price = viewModel.estimate
+        if (route != null && price != null) {
+            Text("${fmt1(route.distanceKm)} км · ${route.durationMin.toInt()} мин", style = MaterialTheme.typography.bodySmall)
+            HorizontalDivider()
+            PriceBreakdownView(price)
+        }
 
         Button(
             onClick = { viewModel.order() },
-            enabled = viewModel.fromAddress.isNotBlank() && viewModel.toAddress.isNotBlank(),
+            enabled = route != null && !viewModel.routeLoading,
             modifier = Modifier.fillMaxWidth().height(52.dp)
         ) {
-            Text("Заказать за ${price.total.toInt()} ₽")
+            Text(price?.let { "Заказать за ${it.total.toInt()} ₽" } ?: "Выберите откуда и куда")
         }
+    }
+}
+
+@Composable
+private fun AddressRow(label: String, value: String?, onClick: () -> Unit) {
+    Card(modifier = Modifier.fillMaxWidth().clickable(onClick = onClick)) {
+        Column(modifier = Modifier.padding(14.dp)) {
+            Text(label, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
+            Text(value ?: "Выбрать на карте", style = MaterialTheme.typography.bodyLarge)
+        }
+    }
+}
+
+@Composable
+private fun RouteMap(from: PlacePoint?, to: PlacePoint?, route: DirectionsClient.RouteResult?) {
+    val cameraPositionState = rememberCameraPositionState {
+        position = CameraPosition.fromLatLngZoom(from?.latLng ?: TASHKENT, 12f)
+    }
+    LaunchedEffect(from, to) {
+        val target = to?.latLng ?: from?.latLng ?: TASHKENT
+        val zoom = if (from != null && to != null) 12f else if (from != null) 14f else 11f
+        cameraPositionState.position = CameraPosition.fromLatLngZoom(target, zoom)
+    }
+    GoogleMap(
+        modifier = Modifier.fillMaxWidth().height(200.dp),
+        cameraPositionState = cameraPositionState
+    ) {
+        from?.let { Marker(state = MarkerState(position = it.latLng), title = "Откуда") }
+        to?.let { Marker(state = MarkerState(position = it.latLng), title = "Куда") }
+        route?.polyline?.takeIf { it.isNotEmpty() }?.let { Polyline(points = it) }
     }
 }
 
@@ -190,18 +262,12 @@ private fun ActiveRideCard(ride: Ride, onNewOrder: () -> Unit) {
         when (ride.status) {
             RideStatus.COMPLETED -> {
                 Text("Поездка завершена. Спасибо!")
-                Button(onClick = onNewOrder, modifier = Modifier.fillMaxWidth()) {
-                    Text("Заказать снова")
-                }
+                Button(onClick = onNewOrder, modifier = Modifier.fillMaxWidth()) { Text("Заказать снова") }
             }
             RideStatus.CANCELLED -> {
-                Button(onClick = onNewOrder, modifier = Modifier.fillMaxWidth()) {
-                    Text("Заказать снова")
-                }
+                Button(onClick = onNewOrder, modifier = Modifier.fillMaxWidth()) { Text("Заказать снова") }
             }
-            else -> {
-                LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
-            }
+            else -> LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
         }
     }
 }
