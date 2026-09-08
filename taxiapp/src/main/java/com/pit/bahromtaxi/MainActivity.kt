@@ -14,6 +14,10 @@ import com.pit.bahromtaxi.ui.client.ClientScreen
 import com.pit.bahromtaxi.ui.client.ClientViewModel
 import com.pit.bahromtaxi.ui.driver.DriverScreen
 import com.pit.bahromtaxi.ui.driver.DriverViewModel
+import com.pit.bahromtaxi.ui.history.RideHistoryScreen
+import com.pit.bahromtaxi.ui.history.RideHistoryViewModel
+import com.pit.bahromtaxi.ui.profile.ProfileScreen
+import com.pit.bahromtaxi.ui.profile.ProfileViewModel
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -31,11 +35,29 @@ class MainActivity : ComponentActivity() {
                     }
                     composable("client") {
                         val vm: ClientViewModel = viewModel()
-                        ClientScreen(viewModel = vm, onBack = { navController.popBackStack() })
+                        ClientScreen(
+                            viewModel = vm,
+                            onBack = { navController.popBackStack() },
+                            onOpenProfile = { navController.navigate("profile") },
+                            onOpenHistory = { navController.navigate("history") }
+                        )
                     }
                     composable("driver") {
                         val vm: DriverViewModel = viewModel()
-                        DriverScreen(viewModel = vm, onBack = { navController.popBackStack() })
+                        DriverScreen(
+                            viewModel = vm,
+                            onBack = { navController.popBackStack() },
+                            onOpenProfile = { navController.navigate("profile") },
+                            onOpenHistory = { navController.navigate("history") }
+                        )
+                    }
+                    composable("profile") {
+                        val vm: ProfileViewModel = viewModel()
+                        ProfileScreen(viewModel = vm, onBack = { navController.popBackStack() })
+                    }
+                    composable("history") {
+                        val vm: RideHistoryViewModel = viewModel()
+                        RideHistoryScreen(viewModel = vm, onBack = { navController.popBackStack() })
                     }
                 }
             }

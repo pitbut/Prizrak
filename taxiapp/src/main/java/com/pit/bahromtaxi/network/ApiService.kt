@@ -2,13 +2,24 @@ package com.pit.bahromtaxi.network
 
 import retrofit2.http.Body
 import retrofit2.http.GET
+import retrofit2.http.PATCH
 import retrofit2.http.POST
 import retrofit2.http.Path
+import retrofit2.http.Query
 
 interface ApiService {
 
     @POST("auth/register")
     suspend fun register(@Body body: RegisterRequest): AuthResponse
+
+    @GET("profile")
+    suspend fun getProfile(): ProfileDto
+
+    @PATCH("profile")
+    suspend fun updateProfile(@Body body: ProfileUpdateRequest): ProfileDto
+
+    @GET("rides/history")
+    suspend fun rideHistory(@Query("limit") limit: Int = 20, @Query("before") before: String? = null): List<RideDto>
 
     @POST("rides")
     suspend fun createRide(@Body body: CreateRideRequest): RideDto

@@ -13,6 +13,8 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.filled.History
+import androidx.compose.material.icons.filled.Person
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CircularProgressIndicator
@@ -48,7 +50,12 @@ import java.util.Locale
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun DriverScreen(viewModel: DriverViewModel, onBack: () -> Unit) {
+fun DriverScreen(
+    viewModel: DriverViewModel,
+    onBack: () -> Unit,
+    onOpenProfile: () -> Unit,
+    onOpenHistory: () -> Unit
+) {
     var registered by remember { mutableStateOf(viewModel.isRegistered) }
     val online by viewModel.online.collectAsState()
     val rides by viewModel.rides.collectAsState()
@@ -76,6 +83,16 @@ fun DriverScreen(viewModel: DriverViewModel, onBack: () -> Unit) {
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(Icons.Filled.ArrowBack, contentDescription = "Назад")
+                    }
+                },
+                actions = {
+                    if (registered) {
+                        IconButton(onClick = onOpenHistory) {
+                            Icon(Icons.Filled.History, contentDescription = "История поездок")
+                        }
+                        IconButton(onClick = onOpenProfile) {
+                            Icon(Icons.Filled.Person, contentDescription = "Кабинет")
+                        }
                     }
                 }
             )

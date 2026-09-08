@@ -22,7 +22,9 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.MyLocation
+import androidx.compose.material.icons.filled.Person
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CircularProgressIndicator
@@ -87,7 +89,12 @@ private val TASHKENT = Coordinate(41.2995, 69.2401)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun ClientScreen(viewModel: ClientViewModel, onBack: () -> Unit) {
+fun ClientScreen(
+    viewModel: ClientViewModel,
+    onBack: () -> Unit,
+    onOpenProfile: () -> Unit,
+    onOpenHistory: () -> Unit
+) {
     val context = LocalContext.current
 
     var registered by remember { mutableStateOf(viewModel.isRegistered) }
@@ -118,6 +125,16 @@ fun ClientScreen(viewModel: ClientViewModel, onBack: () -> Unit) {
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(Icons.Filled.ArrowBack, contentDescription = "Назад")
+                    }
+                },
+                actions = {
+                    if (registered) {
+                        IconButton(onClick = onOpenHistory) {
+                            Icon(Icons.Filled.History, contentDescription = "История поездок")
+                        }
+                        IconButton(onClick = onOpenProfile) {
+                            Icon(Icons.Filled.Person, contentDescription = "Кабинет")
+                        }
                     }
                 }
             )

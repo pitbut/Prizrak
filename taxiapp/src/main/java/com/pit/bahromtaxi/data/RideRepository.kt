@@ -8,6 +8,8 @@ import com.pit.bahromtaxi.network.ApiClient
 import com.pit.bahromtaxi.network.AuthStore
 import com.pit.bahromtaxi.network.CreateRideRequest
 import com.pit.bahromtaxi.network.OnlineRequest
+import com.pit.bahromtaxi.network.ProfileDto
+import com.pit.bahromtaxi.network.ProfileUpdateRequest
 import com.pit.bahromtaxi.network.RegisterRequest
 import com.pit.bahromtaxi.network.RideDto
 import com.pit.bahromtaxi.network.RideSocket
@@ -103,6 +105,22 @@ object RideRepository {
         }
     }
 
+    suspend fun getProfile(): ProfileDto? = runCatching { api.getProfile() }
+        .onFailure { _lastError.value = "Не удалось загрузить профиль: ${it.message}" }
+        .getOrNull()
+
+    suspend fun updateProfile(name: String?, phone: String?): ProfileDto? = runCatching {
+        api.updateProfile(ProfileUpdateRequest(name, phone))
+    }
+        .onFailure { _lastError.value = "Не удалось сохранить профиль: ${it.message}" }
+        .getOrNull()
+
+    suspend fun getRideHistory(before: String? = null): List<Ride> = runCatching {
+        api.rideHistory(before = before).map { it.toDomain() }
+    }
+        .onFailure { _lastError.value = "Не удалось загрузить историю: ${it.message}" }
+        .getOrElse { emptyList() }
+
     fun setDriverOnline(online: Boolean) {
         val driverId = AuthStore.userId ?: return
         _driverOnline.value = online
@@ -192,6 +210,7 @@ object RideRepository {
         driverId = driverId,
         driverName = driverName,
         paymentMethod = runCatching { PaymentMethod.valueOf(paymentMethod ?: "CASH") }.getOrDefault(PaymentMethod.CASH),
-        driverClickHandle = driverClickHandle
+        driverClickHandle = driverClickHandle,
+        createdAt = createdAt
     )
 }

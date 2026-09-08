@@ -21,7 +21,8 @@ data class RideDto(
     val driverId: String? = null,
     val driverName: String? = null,
     val paymentMethod: String? = null,
-    val driverClickHandle: String? = null
+    val driverClickHandle: String? = null,
+    val createdAt: String? = null
 )
 
 data class RegisterRequest(
@@ -49,3 +50,7 @@ data class OnlineRequest(val online: Boolean)
 data class CommissionDto(val owed: Double, val paid: Double)
 
 data class WsEvent(val type: String, val ride: RideDto? = null)
+
+data class ProfileDto(val userId: String, val role: String, val name: String, val phone: String? = null, val email: String? = null)
+
+data class ProfileUpdateRequest(val name: String? = null, val phone: String? = null)
