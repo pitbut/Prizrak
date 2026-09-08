@@ -161,20 +161,51 @@ private fun PhoneAuthGate(viewModel: ClientViewModel, onDone: () -> Unit) {
         }
         when (viewModel.authStep) {
             AuthStep.PHONE -> {
-                Text("Ваш номер телефона", fontWeight = FontWeight.Bold)
-                OutlinedTextField(
-                    value = viewModel.phoneInput,
-                    onValueChange = { viewModel.phoneInput = it },
-                    label = { Text("+998901234567") },
-                    modifier = Modifier.fillMaxWidth(),
-                    singleLine = true
-                )
-                Button(
-                    onClick = { viewModel.sendCode(activity) },
-                    enabled = !viewModel.authLoading,
-                    modifier = Modifier.fillMaxWidth().height(52.dp)
-                ) {
-                    if (viewModel.authLoading) CircularProgressIndicator(modifier = Modifier.height(20.dp)) else Text("Получить код")
+                if (!viewModel.showEmailForm) {
+                    Text("Ваш номер телефона", fontWeight = FontWeight.Bold)
+                    OutlinedTextField(
+                        value = viewModel.phoneInput,
+                        onValueChange = { viewModel.phoneInput = it },
+                        label = { Text("+998901234567") },
+                        modifier = Modifier.fillMaxWidth(),
+                        singleLine = true
+                    )
+                    Button(
+                        onClick = { viewModel.sendCode(activity) },
+                        enabled = !viewModel.authLoading,
+                        modifier = Modifier.fillMaxWidth().height(52.dp)
+                    ) {
+                        if (viewModel.authLoading) CircularProgressIndicator(modifier = Modifier.height(20.dp)) else Text("Получить код")
+                    }
+                    TextButton(onClick = { viewModel.showEmailForm = true }, modifier = Modifier.fillMaxWidth()) {
+                        Text("Войти по email вместо телефона")
+                    }
+                } else {
+                    Text("Вход по email", fontWeight = FontWeight.Bold)
+                    OutlinedTextField(
+                        value = viewModel.emailInput,
+                        onValueChange = { viewModel.emailInput = it },
+                        label = { Text("Email") },
+                        modifier = Modifier.fillMaxWidth(),
+                        singleLine = true
+                    )
+                    OutlinedTextField(
+                        value = viewModel.passwordInput,
+                        onValueChange = { viewModel.passwordInput = it },
+                        label = { Text("Пароль") },
+                        modifier = Modifier.fillMaxWidth(),
+                        singleLine = true
+                    )
+                    Button(
+                        onClick = { viewModel.continueWithEmail() },
+                        enabled = !viewModel.authLoading,
+                        modifier = Modifier.fillMaxWidth().height(52.dp)
+                    ) {
+                        if (viewModel.authLoading) CircularProgressIndicator(modifier = Modifier.height(20.dp)) else Text("Продолжить")
+                    }
+                    TextButton(onClick = { viewModel.showEmailForm = false }, modifier = Modifier.fillMaxWidth()) {
+                        Text("Назад к номеру телефона")
+                    }
                 }
             }
             AuthStep.CODE -> {

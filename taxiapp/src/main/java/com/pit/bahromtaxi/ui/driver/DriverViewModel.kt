@@ -6,6 +6,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.pit.bahromtaxi.auth.EmailAuthClient
 import com.pit.bahromtaxi.auth.PhoneAuthClient
 import com.pit.bahromtaxi.auth.PhoneCodeResult
 import com.pit.bahromtaxi.data.RideRepository
@@ -27,6 +28,27 @@ class DriverViewModel : ViewModel() {
         private set
     private var verificationId: String? = null
     private var firebaseIdToken: String? = null
+
+    var showEmailForm by mutableStateOf(false)
+    var emailInput by mutableStateOf("")
+    var passwordInput by mutableStateOf("")
+
+    fun continueWithEmail() {
+        val email = emailInput.trim()
+        val password = passwordInput
+        if (email.isBlank() || password.length < 6) {
+            authError = "Введите email и пароль (минимум 6 символов)"
+            return
+        }
+        authError = null
+        authLoading = true
+        viewModelScope.launch {
+            runCatching { EmailAuthClient.signInOrRegister(email, password) }
+                .onSuccess { token -> firebaseIdToken = token; authStep = DriverAuthStep.PROFILE }
+                .onFailure { authError = "Не удалось войти: ${it.message}" }
+            authLoading = false
+        }
+    }
 
     var nameInput by mutableStateOf("")
     var carMake by mutableStateOf("")

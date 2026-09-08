@@ -7,20 +7,33 @@ Auth (SMS-код), затем просит имя, регистрирует на
 реальные HTTP/WebSocket-запросы — это уже не локальная имитация на одном устройстве,
 два разных телефона видят друг друга по-настоящему.
 
-## Подтверждение номера — Firebase Phone Auth
+## Вход — Firebase Auth (телефон / email+пароль / Google — в разработке)
 
-`auth/PhoneAuthClient.kt` — обёртка над Firebase Auth: ввод номера → SMS с кодом →
-ввод кода → Firebase выдаёт ID-токен, который уходит на backend вместе с остальными
-данными регистрации (`RegisterRequest.firebaseIdToken`). Сам backend должен проверить
-токен через Firebase Admin SDK и достать из него уже подтверждённый номер — так на
-клиенте нельзя подделать «я подтвердил номер», не пройдя реальную SMS-проверку.
+Экран входа (и пассажир, и водитель) предлагает несколько способов подтвердить
+личность, но итог один — Firebase выдаёт ID-токен, который уходит на backend вместе с
+остальными данными регистрации (`RegisterRequest.firebaseIdToken`):
+
+- **Телефон + SMS-код** (`auth/PhoneAuthClient.kt`) — основной способ, важен для такси
+  (водитель должен быть реально на связи).
+- **Email + пароль** (`auth/EmailAuthClient.kt`) — альтернатива без SMS: один и тот же
+  экран логинит существующий аккаунт или создаёт новый, если такого email ещё нет.
+- **Google-аккаунт** — в разработке, ждёт обновлённый `google-services.json` с Web
+  client ID (появляется после включения провайдера Google в Firebase Console).
+
+Backend должен проверять токен через Firebase Admin SDK и опознавать/заводить
+пользователя **по `decoded.uid`** (а не по номеру телефона — это устарело: тот же
+Firebase-пользователь может войти телефоном, email или Google, у него всегда один и
+тот же `uid`, но `phone_number`/`email` в токене может как быть, так и не быть, в
+зависимости от способа входа). Профильные поля из токена (`phone_number`, `email` —
+что есть) стоит сохранить как контактную информацию, но матчить пользователя нужно
+по `uid`.
 
 Требует `taxiapp/google-services.json` (в репозитории — это не секрет, тот же файл
-всё равно упаковывается в каждый apk и виден кому угодно после распаковки) и включённый
-провайдер **Phone** в Firebase Console → Authentication → Sign-in method. Firebase Phone
-Auth работает только на платном плане Blaze (pay-as-you-go) — это требование самого
-Google, не решение этого проекта; при этом переход на Blaze сам по себе бесплатный,
-платите только за реально отправленные SMS.
+всё равно упаковывается в каждый apk и виден кому угодно после распаковки) и включённые
+нужные провайдеры в Firebase Console → Authentication → Sign-in method. Phone Auth
+работает только на платном плане Blaze (pay-as-you-go) — это требование самого Google,
+не решение этого проекта; переход на Blaze сам по себе бесплатный, платите только за
+реально отправленные SMS.
 
 **Для разработки/тестов**, чтобы не тратить реальные SMS: Firebase Console →
 Authentication → Sign-in method → Phone → **Phone numbers for testing** — можно
@@ -59,10 +72,11 @@ Authentication → Sign-in method → Phone → **Phone numbers for testing** �
 
 - `POST /auth/register` `{firebaseIdToken, role: "passenger"|"driver", name, carMake?,
   carColor?, carPlate?, clickHandle?}` → `{token, userId, role, name}`. `firebaseIdToken`
-  — обязателен, backend проверяет его через Firebase Admin SDK и достаёт подтверждённый
-  номер телефона (см. «Подтверждение номера» выше) — это заменило прежнюю идею с
-  `phone`/`password` в теле запроса, отдельный пароль больше не нужен. Поля
-  `carMake/carColor/carPlate/clickHandle` осмысленны только для `role: "driver"`.
+  — обязателен, backend проверяет его через Firebase Admin SDK и матчит/заводит
+  пользователя **по `decoded.uid`** (см. «Вход — Firebase Auth» выше — телефон, email
+  или Google дают разный набор claims в токене, но один и тот же `uid`). Это заменило
+  прежнюю идею с `phone`/`password` в теле запроса, отдельный пароль больше не нужен.
+  Поля `carMake/carColor/carPlate/clickHandle` осмысленны только для `role: "driver"`.
 - `POST /rides` (Bearer-токен) `{fromAddress, toAddress, distanceKm, durationMin,
   paymentMethod: "CASH"|"CARD"|"CLICK"}` → объект поездки с полем `price` (`baseFare,
   distanceCost, timeCost, demandFactor, total, commission, driverPayout`), `status`
