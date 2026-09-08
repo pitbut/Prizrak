@@ -119,6 +119,9 @@ dependencies {
 
     implementation platform('com.google.firebase:firebase-bom:33.4.0')
     implementation 'com.google.firebase:firebase-auth'
+    // Без Custom Tabs reCAPTCHA-проверка (запасной способ Phone Auth, когда Play
+    // Integrity недоступен) падает в урезанном WebView с ошибкой про sessionStorage.
+    implementation 'androidx.browser:browser:1.8.0'
 
     debugImplementation 'androidx.compose.ui:ui-tooling'
 }
