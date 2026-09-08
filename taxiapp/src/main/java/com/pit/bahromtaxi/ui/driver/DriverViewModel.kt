@@ -107,7 +107,7 @@ class DriverViewModel : ViewModel() {
         val name = nameInput.trim().ifBlank { "Водитель" }
         registering = true
         viewModelScope.launch {
-            RideRepository.register(
+            val success = RideRepository.register(
                 firebaseIdToken = token,
                 role = "driver",
                 name = name,
@@ -116,9 +116,11 @@ class DriverViewModel : ViewModel() {
                 carPlate = carPlate.trim().ifBlank { null },
                 clickHandle = clickHandle.trim().ifBlank { null }
             )
-            RideRepository.refreshCommission()
             registering = false
-            onDone()
+            if (success) {
+                RideRepository.refreshCommission()
+                onDone()
+            }
         }
     }
 

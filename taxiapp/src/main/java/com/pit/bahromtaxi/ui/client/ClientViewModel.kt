@@ -167,9 +167,9 @@ class ClientViewModel : ViewModel() {
         val name = nameInput.trim().ifBlank { "Пассажир" }
         registering = true
         viewModelScope.launch {
-            RideRepository.register(token, "passenger", name)
+            val success = RideRepository.register(token, "passenger", name)
             registering = false
-            onDone()
+            if (success) onDone()
         }
     }
 
