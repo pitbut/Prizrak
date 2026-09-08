@@ -9,11 +9,6 @@ if (keystorePropertiesFile.exists()) {
     keystoreProperties.load(new FileInputStream(keystorePropertiesFile))
 }
 
-// Ключ Google Maps/Places/Directions — берётся из свойства Gradle (CI передаёт его
-// секретом, см. .github/workflows/build.yml) или из local.properties при локальной
-// сборке. Пустая строка — сборка не падает, просто карта не отрисуется.
-def mapsApiKey = project.findProperty('MAPS_API_KEY') ?: ''
-
 android {
     namespace 'com.pit.bahromtaxi'
     compileSdk 34
@@ -22,14 +17,12 @@ android {
         applicationId "com.pit.bahromtaxi"
         minSdk 24
         targetSdk 34
-        versionCode 4
-        versionName "0.4.0"
+        versionCode 5
+        versionName "0.5.0"
 
         vectorDrawables {
             useSupportLibrary true
         }
-
-        manifestPlaceholders += [mapsApiKey: mapsApiKey]
     }
 
     signingConfigs {
@@ -42,10 +35,8 @@ android {
             }
         }
         debug {
-            // Фиксированный debug-keystore (не секрет — стандартный пароль
-            // "android"), чтобы SHA-1 не менялся между сборками в CI: иначе
-            // ограничение ключа Google Maps по отпечатку приложения ломалось бы
-            // на каждый новый прогон GitHub Actions.
+            // Фиксированный debug-keystore (не секрет — стандартный пароль "android"),
+            // чтобы подпись debug-сборок была одинаковой между прогонами CI.
             storeFile file('debug.keystore')
             storePassword 'android'
             keyAlias 'androiddebugkey'
@@ -123,9 +114,7 @@ dependencies {
     implementation 'com.squareup.okhttp3:okhttp:4.12.0'
     implementation 'com.squareup.okhttp3:logging-interceptor:4.12.0'
 
-    implementation 'com.google.android.gms:play-services-maps:19.0.0'
-    implementation 'com.google.maps.android:maps-compose:4.4.1'
-    implementation 'com.google.android.libraries.places:places:3.5.0'
+    implementation 'org.osmdroid:osmdroid-android:6.1.20'
 
     debugImplementation 'androidx.compose.ui:ui-tooling'
 }

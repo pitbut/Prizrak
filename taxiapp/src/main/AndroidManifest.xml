@@ -15,10 +15,6 @@
         android:usesCleartextTraffic="false"
         android:theme="@style/Theme.BahromTaxi">
 
-        <meta-data
-            android:name="com.google.android.geo.API_KEY"
-            android:value="${mapsApiKey}" />
-
         <activity
             android:name=".MainActivity"
             android:exported="true"

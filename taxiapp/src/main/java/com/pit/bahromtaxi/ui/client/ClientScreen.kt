@@ -1,12 +1,8 @@
 package com.pit.bahromtaxi.ui.client
 
 import android.Manifest
-import android.app.Activity
-import android.content.Intent
 import android.content.pm.PackageManager
-import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.ActivityResultLauncher
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -18,6 +14,9 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.MyLocation
@@ -34,10 +33,12 @@ import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -50,42 +51,40 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.viewinterop.AndroidView
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import androidx.core.content.ContextCompat
-import com.google.android.gms.maps.model.CameraPosition
-import com.google.android.gms.maps.model.LatLng
-import com.google.android.libraries.places.api.Places
-import com.google.android.libraries.places.api.model.Place
-import com.google.android.libraries.places.widget.Autocomplete
-import com.google.android.libraries.places.widget.model.AutocompleteActivityMode
-import com.google.maps.android.compose.GoogleMap
-import com.google.maps.android.compose.MapProperties
-import com.google.maps.android.compose.MapUiSettings
-import com.google.maps.android.compose.Marker
-import com.google.maps.android.compose.MarkerState
-import com.google.maps.android.compose.Polyline
-import com.google.maps.android.compose.rememberCameraPositionState
 import com.pit.bahromtaxi.data.RideRepository
 import com.pit.bahromtaxi.domain.PaymentMethod
 import com.pit.bahromtaxi.domain.PriceBreakdown
 import com.pit.bahromtaxi.domain.Ride
 import com.pit.bahromtaxi.domain.RideStatus
 import com.pit.bahromtaxi.domain.label
-import com.pit.bahromtaxi.maps.DirectionsClient
-import com.pit.bahromtaxi.maps.MapsConfig
+import com.pit.bahromtaxi.maps.Coordinate
+import com.pit.bahromtaxi.maps.NominatimClient
+import com.pit.bahromtaxi.maps.OsrmClient
 import com.pit.bahromtaxi.maps.PickTarget
 import com.pit.bahromtaxi.maps.PlacePoint
-import com.pit.bahromtaxi.maps.ReverseGeocoder
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import org.osmdroid.events.MapEventsReceiver
+import org.osmdroid.tileprovider.tilesource.TileSourceFactory
+import org.osmdroid.util.GeoPoint
+import org.osmdroid.views.MapView
+import org.osmdroid.views.overlay.MapEventsOverlay
+import org.osmdroid.views.overlay.Marker
+import org.osmdroid.views.overlay.Polyline
+import org.osmdroid.views.overlay.mylocation.GpsMyLocationProvider
+import org.osmdroid.views.overlay.mylocation.MyLocationNewOverlay
 import java.util.Locale
 
-private val TASHKENT = LatLng(41.2995, 69.2401)
+private val TASHKENT = Coordinate(41.2995, 69.2401)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ClientScreen(viewModel: ClientViewModel, onBack: () -> Unit) {
     val context = LocalContext.current
-    val apiKey = remember { MapsConfig.apiKey(context) }
-    val coroutineScope = rememberCoroutineScope()
 
     var registered by remember { mutableStateOf(viewModel.isRegistered) }
     var locationGranted by remember {
@@ -94,6 +93,8 @@ fun ClientScreen(viewModel: ClientViewModel, onBack: () -> Unit) {
                 PackageManager.PERMISSION_GRANTED
         )
     }
+    var searchTarget by remember { mutableStateOf<PickTarget?>(null) }
+
     val rides by viewModel.rides.collectAsState()
     val error by viewModel.lastError.collectAsState()
     val activeRide = rides.find { it.id == viewModel.activeRideId }
@@ -105,42 +106,6 @@ fun ClientScreen(viewModel: ClientViewModel, onBack: () -> Unit) {
     val locationPermissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission()
     ) { granted -> locationGranted = granted }
-
-    val fromLauncher = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
-        result.data?.let { data ->
-            val place = Autocomplete.getPlaceFromIntent(data)
-            place.latLng?.let { latLng ->
-                viewModel.setFromPlace(PlacePoint(place.address ?: place.name.orEmpty(), latLng), apiKey)
-            }
-        }
-    }
-    val toLauncher = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
-        result.data?.let { data ->
-            val place = Autocomplete.getPlaceFromIntent(data)
-            place.latLng?.let { latLng ->
-                viewModel.setToPlace(PlacePoint(place.address ?: place.name.orEmpty(), latLng), apiKey)
-            }
-        }
-    }
-
-    fun launchPicker(launcher: ActivityResultLauncher<Intent>) {
-        if (!Places.isInitialized()) {
-            Toast.makeText(context, "Карта недоступна: не настроен ключ Google Maps API", Toast.LENGTH_LONG).show()
-            return
-        }
-        val fields = listOf(Place.Field.ADDRESS, Place.Field.LAT_LNG, Place.Field.NAME)
-        val intent = Autocomplete.IntentBuilder(AutocompleteActivityMode.FULLSCREEN, fields)
-            .build(context as Activity)
-        launcher.launch(intent)
-    }
-
-    fun onMapTap(latLng: LatLng) {
-        if (viewModel.pickTarget == null) return
-        coroutineScope.launch {
-            val address = ReverseGeocoder.addressFor(context, latLng)
-            viewModel.setPointFromMap(PlacePoint(address, latLng), apiKey)
-        }
-    }
 
     Scaffold(
         topBar = {
@@ -169,14 +134,24 @@ fun ClientScreen(viewModel: ClientViewModel, onBack: () -> Unit) {
                 activeRide == null || activeRide.status == RideStatus.CANCELLED -> OrderForm(
                     viewModel = viewModel,
                     locationGranted = locationGranted,
-                    onPickFrom = { launchPicker(fromLauncher) },
-                    onPickTo = { launchPicker(toLauncher) },
-                    onRequestLocation = { locationPermissionLauncher.launch(Manifest.permission.ACCESS_FINE_LOCATION) },
-                    onMapTap = ::onMapTap
+                    onSearchFrom = { searchTarget = PickTarget.FROM },
+                    onSearchTo = { searchTarget = PickTarget.TO },
+                    onRequestLocation = { locationPermissionLauncher.launch(Manifest.permission.ACCESS_FINE_LOCATION) }
                 )
                 else -> ActiveRideCard(activeRide, onNewOrder = { viewModel.resetOrder() })
             }
         }
+    }
+
+    searchTarget?.let { target ->
+        AddressSearchDialog(
+            title = if (target == PickTarget.FROM) "Откуда" else "Куда",
+            onDismiss = { searchTarget = null },
+            onSelect = { place ->
+                if (target == PickTarget.FROM) viewModel.chooseFromPlace(place) else viewModel.chooseToPlace(place)
+                searchTarget = null
+            }
+        )
     }
 }
 
@@ -197,38 +172,104 @@ private fun NameGate(name: String, onNameChange: (String) -> Unit, loading: Bool
 }
 
 @Composable
+private fun AddressSearchDialog(title: String, onDismiss: () -> Unit, onSelect: (PlacePoint) -> Unit) {
+    var query by remember { mutableStateOf("") }
+    var results by remember { mutableStateOf<List<PlacePoint>>(emptyList()) }
+    var loading by remember { mutableStateOf(false) }
+
+    LaunchedEffect(query) {
+        val trimmed = query.trim()
+        if (trimmed.length < 3) {
+            results = emptyList()
+            return@LaunchedEffect
+        }
+        delay(600) // не долбить Nominatim на каждое нажатие клавиши — лимит ~1 запрос/сек
+        loading = true
+        NominatimClient.search(trimmed)
+            .onSuccess { results = it }
+            .onFailure { results = emptyList() }
+        loading = false
+    }
+
+    Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false)) {
+        Surface(modifier = Modifier.fillMaxSize()) {
+            Column(modifier = Modifier.fillMaxSize().padding(16.dp)) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    IconButton(onClick = onDismiss) {
+                        Icon(Icons.Filled.ArrowBack, contentDescription = "Закрыть")
+                    }
+                    Spacer(Modifier.width(8.dp))
+                    Text(title, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
+                }
+                Spacer(Modifier.height(8.dp))
+                OutlinedTextField(
+                    value = query,
+                    onValueChange = { query = it },
+                    label = { Text("Введите адрес") },
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = true
+                )
+                Spacer(Modifier.height(8.dp))
+                if (loading) LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
+                LazyColumn(modifier = Modifier.weight(1f)) {
+                    items(results) { place ->
+                        Column(
+                            modifier = Modifier.fillMaxWidth()
+                                .clickable { onSelect(place) }
+                                .padding(vertical = 14.dp)
+                        ) {
+                            Text(place.address, style = MaterialTheme.typography.bodyLarge)
+                        }
+                        HorizontalDivider()
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
 private fun OrderForm(
     viewModel: ClientViewModel,
     locationGranted: Boolean,
-    onPickFrom: () -> Unit,
-    onPickTo: () -> Unit,
-    onRequestLocation: () -> Unit,
-    onMapTap: (LatLng) -> Unit
+    onSearchFrom: () -> Unit,
+    onSearchTo: () -> Unit,
+    onRequestLocation: () -> Unit
 ) {
+    val coroutineScope = rememberCoroutineScope()
+
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
         AddressRow(
             label = "Откуда",
             value = viewModel.fromPlace?.address,
             picking = viewModel.pickTarget == PickTarget.FROM,
-            onClick = onPickFrom,
+            onClick = onSearchFrom,
             onPickOnMap = { viewModel.startPicking(PickTarget.FROM) }
         )
         AddressRow(
             label = "Куда",
             value = viewModel.toPlace?.address,
             picking = viewModel.pickTarget == PickTarget.TO,
-            onClick = onPickTo,
+            onClick = onSearchTo,
             onPickOnMap = { viewModel.startPicking(PickTarget.TO) }
         )
 
-        RouteMap(
+        OsmRouteMap(
             from = viewModel.fromPlace,
             to = viewModel.toPlace,
             route = viewModel.route,
             pickTarget = viewModel.pickTarget,
             locationGranted = locationGranted,
             onRequestLocation = onRequestLocation,
-            onMapTap = onMapTap
+            onMapTap = { coordinate ->
+                if (viewModel.pickTarget == null) return@OsmRouteMap
+                coroutineScope.launch {
+                    val address = NominatimClient.reverse(coordinate).getOrElse {
+                        "Точка на карте (%.5f, %.5f)".format(Locale.US, coordinate.lat, coordinate.lng)
+                    }
+                    viewModel.setPointFromMap(PlacePoint(address, coordinate))
+                }
+            }
         )
 
         when {
@@ -280,15 +321,16 @@ private fun OrderForm(
 @Composable
 private fun AddressRow(label: String, value: String?, picking: Boolean, onClick: () -> Unit, onPickOnMap: () -> Unit) {
     Card(modifier = Modifier.fillMaxWidth()) {
-        Column(modifier = Modifier.padding(14.dp)) {
-            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                Column(modifier = Modifier.clickable(onClick = onClick).weight(1f)) {
-                    Text(label, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
-                    Text(value ?: "Ввести адрес", style = MaterialTheme.typography.bodyLarge)
-                }
-                TextButton(onClick = onPickOnMap) {
-                    Text(if (picking) "Жду тап…" else "На карте")
-                }
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(14.dp),
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Column(modifier = Modifier.clickable(onClick = onClick).weight(1f)) {
+                Text(label, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
+                Text(value ?: "Ввести адрес", style = MaterialTheme.typography.bodyLarge)
+            }
+            TextButton(onClick = onPickOnMap) {
+                Text(if (picking) "Жду тап…" else "На карте")
             }
         }
     }
@@ -304,22 +346,27 @@ private fun PaymentMethodRow(selected: PaymentMethod, onSelect: (PaymentMethod) 
 }
 
 @Composable
-private fun RouteMap(
+private fun OsmRouteMap(
     from: PlacePoint?,
     to: PlacePoint?,
-    route: DirectionsClient.RouteResult?,
+    route: OsrmClient.RouteResult?,
     pickTarget: PickTarget?,
     locationGranted: Boolean,
     onRequestLocation: () -> Unit,
-    onMapTap: (LatLng) -> Unit
+    onMapTap: (Coordinate) -> Unit
 ) {
-    val cameraPositionState = rememberCameraPositionState {
-        position = CameraPosition.fromLatLngZoom(from?.latLng ?: TASHKENT, 12f)
+    val context = LocalContext.current
+    val mapView = remember {
+        MapView(context).apply {
+            setTileSource(TileSourceFactory.MAPNIK)
+            setMultiTouchControls(true)
+            controller.setZoom(12.0)
+            controller.setCenter(GeoPoint(TASHKENT.lat, TASHKENT.lng))
+        }
     }
-    LaunchedEffect(from, to) {
-        val target = to?.latLng ?: from?.latLng ?: TASHKENT
-        val zoom = if (from != null && to != null) 12f else if (from != null) 14f else 11f
-        cameraPositionState.position = CameraPosition.fromLatLngZoom(target, zoom)
+
+    DisposableEffect(Unit) {
+        onDispose { mapView.onDetach() }
     }
 
     Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
@@ -331,17 +378,57 @@ private fun RouteMap(
             )
         }
         Box {
-            GoogleMap(
+            AndroidView(
+                factory = { mapView },
                 modifier = Modifier.fillMaxWidth().height(220.dp),
-                cameraPositionState = cameraPositionState,
-                properties = MapProperties(isMyLocationEnabled = locationGranted),
-                uiSettings = MapUiSettings(myLocationButtonEnabled = false, zoomControlsEnabled = false),
-                onMapClick = onMapTap
-            ) {
-                from?.let { Marker(state = MarkerState(position = it.latLng), title = "Откуда") }
-                to?.let { Marker(state = MarkerState(position = it.latLng), title = "Куда") }
-                route?.polyline?.takeIf { it.isNotEmpty() }?.let { Polyline(points = it) }
-            }
+                update = { map ->
+                    map.overlays.clear()
+
+                    map.overlays.add(
+                        MapEventsOverlay(object : MapEventsReceiver {
+                            override fun singleTapConfirmedHelper(p: GeoPoint): Boolean {
+                                onMapTap(Coordinate(p.latitude, p.longitude))
+                                return true
+                            }
+                            override fun longPressHelper(p: GeoPoint) = false
+                        })
+                    )
+
+                    from?.let {
+                        map.overlays.add(
+                            Marker(map).apply {
+                                position = GeoPoint(it.coordinate.lat, it.coordinate.lng)
+                                title = "Откуда"
+                            }
+                        )
+                    }
+                    to?.let {
+                        map.overlays.add(
+                            Marker(map).apply {
+                                position = GeoPoint(it.coordinate.lat, it.coordinate.lng)
+                                title = "Куда"
+                            }
+                        )
+                    }
+                    route?.polyline?.takeIf { it.isNotEmpty() }?.let { pts ->
+                        map.overlays.add(
+                            Polyline().apply { setPoints(pts.map { GeoPoint(it.lat, it.lng) }) }
+                        )
+                    }
+                    if (locationGranted) {
+                        map.overlays.add(
+                            MyLocationNewOverlay(GpsMyLocationProvider(context), map).apply { enableMyLocation() }
+                        )
+                    }
+
+                    val target = to?.coordinate ?: from?.coordinate
+                    if (target != null) {
+                        map.controller.setCenter(GeoPoint(target.lat, target.lng))
+                        map.controller.setZoom(if (from != null && to != null) 12.0 else 14.0)
+                    }
+                    map.invalidate()
+                }
+            )
             if (!locationGranted) {
                 FilledIconButton(
                     onClick = onRequestLocation,

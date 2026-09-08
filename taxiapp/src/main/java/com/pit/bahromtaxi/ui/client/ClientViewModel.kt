@@ -10,7 +10,7 @@ import com.pit.bahromtaxi.domain.PaymentMethod
 import com.pit.bahromtaxi.domain.PriceBreakdown
 import com.pit.bahromtaxi.domain.PricingEngine
 import com.pit.bahromtaxi.domain.Ride
-import com.pit.bahromtaxi.maps.DirectionsClient
+import com.pit.bahromtaxi.maps.OsrmClient
 import com.pit.bahromtaxi.maps.PickTarget
 import com.pit.bahromtaxi.maps.PlacePoint
 import com.pit.bahromtaxi.network.AuthStore
@@ -31,7 +31,7 @@ class ClientViewModel : ViewModel() {
     var pickTarget by mutableStateOf<PickTarget?>(null)
         private set
 
-    var route by mutableStateOf<DirectionsClient.RouteResult?>(null)
+    var route by mutableStateOf<OsrmClient.RouteResult?>(null)
         private set
     var routeLoading by mutableStateOf(false)
         private set
@@ -56,38 +56,34 @@ class ClientViewModel : ViewModel() {
         pickTarget = target
     }
 
-    fun cancelPicking() {
-        pickTarget = null
-    }
-
-    fun setPointFromMap(point: PlacePoint, apiKey: String) {
+    fun setPointFromMap(point: PlacePoint) {
         when (pickTarget) {
-            PickTarget.FROM -> setFromPlace(point, apiKey)
-            PickTarget.TO -> setToPlace(point, apiKey)
+            PickTarget.FROM -> chooseFromPlace(point)
+            PickTarget.TO -> chooseToPlace(point)
             null -> return
         }
         pickTarget = null
     }
 
-    fun setFromPlace(place: PlacePoint, apiKey: String) {
+    fun chooseFromPlace(place: PlacePoint) {
         fromPlace = place
         route = null
-        fetchRouteIfReady(apiKey)
+        fetchRouteIfReady()
     }
 
-    fun setToPlace(place: PlacePoint, apiKey: String) {
+    fun chooseToPlace(place: PlacePoint) {
         toPlace = place
         route = null
-        fetchRouteIfReady(apiKey)
+        fetchRouteIfReady()
     }
 
-    private fun fetchRouteIfReady(apiKey: String) {
+    private fun fetchRouteIfReady() {
         val from = fromPlace ?: return
         val to = toPlace ?: return
         routeError = null
         routeLoading = true
         viewModelScope.launch {
-            DirectionsClient.fetchRoute(from.latLng, to.latLng, apiKey)
+            OsrmClient.fetchRoute(from.coordinate, to.coordinate)
                 .onSuccess { route = it }
                 .onFailure { routeError = "Не удалось построить маршрут: ${it.message}" }
             routeLoading = false

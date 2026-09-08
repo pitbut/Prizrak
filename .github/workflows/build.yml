@@ -34,7 +34,7 @@ jobs:
           ls -la app/src/main/assets/models
 
       - name: Build debug APK
-        run: gradle assembleDebug --no-daemon --stacktrace -PMAPS_API_KEY="${{ secrets.MAPS_API_KEY }}"
+        run: gradle assembleDebug --no-daemon --stacktrace
 
       - name: Upload Prizrak APK artifact
         uses: actions/upload-artifact@v4

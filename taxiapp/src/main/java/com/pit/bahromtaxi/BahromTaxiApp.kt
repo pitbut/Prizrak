@@ -1,18 +1,19 @@
 package com.pit.bahromtaxi
 
 import android.app.Application
-import com.google.android.libraries.places.api.Places
-import com.pit.bahromtaxi.maps.MapsConfig
+import android.preference.PreferenceManager
 import com.pit.bahromtaxi.network.AuthStore
+import org.osmdroid.config.Configuration
+import java.io.File
 
 class BahromTaxiApp : Application() {
     override fun onCreate() {
         super.onCreate()
         AuthStore.init(this)
 
-        val mapsKey = MapsConfig.apiKey(this)
-        if (mapsKey.isNotBlank() && !Places.isInitialized()) {
-            runCatching { Places.initialize(applicationContext, mapsKey) }
-        }
+        Configuration.getInstance().load(this, PreferenceManager.getDefaultSharedPreferences(this))
+        Configuration.getInstance().userAgentValue = packageName
+        Configuration.getInstance().osmdroidBasePath = File(cacheDir, "osmdroid")
+        Configuration.getInstance().osmdroidTileCache = File(cacheDir, "osmdroid/tiles")
     }
 }
