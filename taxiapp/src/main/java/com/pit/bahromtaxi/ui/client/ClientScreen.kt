@@ -435,6 +435,9 @@ private fun OsmRouteMap(
         MapView(context).apply {
             setTileSource(TileSourceFactory.MAPNIK)
             setMultiTouchControls(true)
+            // Зум щипком и так работает — встроенные +/- кнопки только мешают и
+            // налезают на кнопку "моё местоположение".
+            zoomController.setVisibility(org.osmdroid.views.CustomZoomButtonsController.Visibility.NEVER)
             controller.setZoom(12.0)
             controller.setCenter(GeoPoint(TASHKENT.lat, TASHKENT.lng))
         }
@@ -442,6 +445,16 @@ private fun OsmRouteMap(
 
     DisposableEffect(Unit) {
         onDispose { mapView.onDetach() }
+    }
+
+    // Пересчитываем центр/зум только когда правда меняются точки — а не на каждой
+    // перерисовке экрана (иначе карта дёргается и сбрасывает ручной поворот/зум).
+    LaunchedEffect(from, to) {
+        val target = to?.coordinate ?: from?.coordinate
+        if (target != null) {
+            mapView.controller.animateTo(GeoPoint(target.lat, target.lng))
+            mapView.controller.setZoom(if (from != null && to != null) 12.0 else 14.0)
+        }
     }
 
     Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
@@ -496,11 +509,6 @@ private fun OsmRouteMap(
                         )
                     }
 
-                    val target = to?.coordinate ?: from?.coordinate
-                    if (target != null) {
-                        map.controller.setCenter(GeoPoint(target.lat, target.lng))
-                        map.controller.setZoom(if (from != null && to != null) 12.0 else 14.0)
-                    }
                     map.invalidate()
                 }
             )
