@@ -25,6 +25,7 @@ data class RideDto(
 )
 
 data class RegisterRequest(
+    val firebaseIdToken: String,
     val role: String,
     val name: String,
     val carMake: String? = null,

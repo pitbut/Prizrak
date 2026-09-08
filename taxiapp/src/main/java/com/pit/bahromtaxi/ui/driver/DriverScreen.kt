@@ -1,5 +1,6 @@
 package com.pit.bahromtaxi.ui.driver
 
+import android.app.Activity
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -34,6 +35,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.pit.bahromtaxi.data.RideRepository
@@ -87,7 +89,7 @@ fun DriverScreen(viewModel: DriverViewModel, onBack: () -> Unit) {
             }
 
             if (!registered) {
-                NameGate(viewModel = viewModel, onSubmit = { registered = true })
+                PhoneAuthGate(viewModel = viewModel, onDone = { registered = true })
                 return@Column
             }
 
@@ -130,52 +132,96 @@ fun DriverScreen(viewModel: DriverViewModel, onBack: () -> Unit) {
 }
 
 @Composable
-private fun NameGate(viewModel: DriverViewModel, onSubmit: () -> Unit) {
+private fun PhoneAuthGate(viewModel: DriverViewModel, onDone: () -> Unit) {
+    val activity = LocalContext.current as Activity
+
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        Text("Данные водителя", fontWeight = FontWeight.Bold)
-        OutlinedTextField(
-            value = viewModel.nameInput,
-            onValueChange = { viewModel.nameInput = it },
-            label = { Text("Имя") },
-            modifier = Modifier.fillMaxWidth()
-        )
-        OutlinedTextField(
-            value = viewModel.carMake,
-            onValueChange = { viewModel.carMake = it },
-            label = { Text("Марка и модель авто") },
-            modifier = Modifier.fillMaxWidth()
-        )
-        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            OutlinedTextField(
-                value = viewModel.carColor,
-                onValueChange = { viewModel.carColor = it },
-                label = { Text("Цвет") },
-                modifier = Modifier.weight(1f)
-            )
-            OutlinedTextField(
-                value = viewModel.carPlate,
-                onValueChange = { viewModel.carPlate = it },
-                label = { Text("Гос. номер") },
-                modifier = Modifier.weight(1f)
-            )
+        viewModel.authError?.let {
+            Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
         }
-        OutlinedTextField(
-            value = viewModel.clickHandle,
-            onValueChange = { viewModel.clickHandle = it },
-            label = { Text("Click для оплаты (телефон, необязательно)") },
-            modifier = Modifier.fillMaxWidth()
-        )
-        Text(
-            "Марка, цвет и номер помогают пассажиру узнать машину. Click — если хотите принимать " +
-                "оплату переводом, а не только наличными или картой на месте.",
-            style = MaterialTheme.typography.bodySmall
-        )
-        Button(
-            onClick = { viewModel.register(onSubmit) },
-            enabled = !viewModel.registering,
-            modifier = Modifier.fillMaxWidth().height(52.dp)
-        ) {
-            if (viewModel.registering) CircularProgressIndicator(modifier = Modifier.height(20.dp)) else Text("Продолжить")
+        when (viewModel.authStep) {
+            DriverAuthStep.PHONE -> {
+                Text("Ваш номер телефона", fontWeight = FontWeight.Bold)
+                OutlinedTextField(
+                    value = viewModel.phoneInput,
+                    onValueChange = { viewModel.phoneInput = it },
+                    label = { Text("+998901234567") },
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = true
+                )
+                Button(
+                    onClick = { viewModel.sendCode(activity) },
+                    enabled = !viewModel.authLoading,
+                    modifier = Modifier.fillMaxWidth().height(52.dp)
+                ) {
+                    if (viewModel.authLoading) CircularProgressIndicator(modifier = Modifier.height(20.dp)) else Text("Получить код")
+                }
+            }
+            DriverAuthStep.CODE -> {
+                Text("Код из SMS", fontWeight = FontWeight.Bold)
+                Text("Отправлен на ${viewModel.phoneInput}", style = MaterialTheme.typography.bodySmall)
+                OutlinedTextField(
+                    value = viewModel.codeInput,
+                    onValueChange = { viewModel.codeInput = it },
+                    label = { Text("Код") },
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = true
+                )
+                Button(
+                    onClick = { viewModel.confirmCode() },
+                    enabled = !viewModel.authLoading,
+                    modifier = Modifier.fillMaxWidth().height(52.dp)
+                ) {
+                    if (viewModel.authLoading) CircularProgressIndicator(modifier = Modifier.height(20.dp)) else Text("Подтвердить")
+                }
+            }
+            DriverAuthStep.PROFILE -> {
+                Text("Данные водителя", fontWeight = FontWeight.Bold)
+                OutlinedTextField(
+                    value = viewModel.nameInput,
+                    onValueChange = { viewModel.nameInput = it },
+                    label = { Text("Имя") },
+                    modifier = Modifier.fillMaxWidth()
+                )
+                OutlinedTextField(
+                    value = viewModel.carMake,
+                    onValueChange = { viewModel.carMake = it },
+                    label = { Text("Марка и модель авто") },
+                    modifier = Modifier.fillMaxWidth()
+                )
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedTextField(
+                        value = viewModel.carColor,
+                        onValueChange = { viewModel.carColor = it },
+                        label = { Text("Цвет") },
+                        modifier = Modifier.weight(1f)
+                    )
+                    OutlinedTextField(
+                        value = viewModel.carPlate,
+                        onValueChange = { viewModel.carPlate = it },
+                        label = { Text("Гос. номер") },
+                        modifier = Modifier.weight(1f)
+                    )
+                }
+                OutlinedTextField(
+                    value = viewModel.clickHandle,
+                    onValueChange = { viewModel.clickHandle = it },
+                    label = { Text("Click для оплаты (телефон, необязательно)") },
+                    modifier = Modifier.fillMaxWidth()
+                )
+                Text(
+                    "Марка, цвет и номер помогают пассажиру узнать машину. Click — если хотите принимать " +
+                        "оплату переводом, а не только наличными или картой на месте.",
+                    style = MaterialTheme.typography.bodySmall
+                )
+                Button(
+                    onClick = { viewModel.register(onDone) },
+                    enabled = !viewModel.registering,
+                    modifier = Modifier.fillMaxWidth().height(52.dp)
+                ) {
+                    if (viewModel.registering) CircularProgressIndicator(modifier = Modifier.height(20.dp)) else Text("Продолжить")
+                }
+            }
         }
     }
 }

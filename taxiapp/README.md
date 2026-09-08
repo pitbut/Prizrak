@@ -2,9 +2,30 @@
 
 Android-приложение на Kotlin + Jetpack Compose: один и тот же apk открывается либо в
 режиме **«Я пассажир»**, либо в режиме **«Я водитель»** — выбор на стартовом экране.
-При первом входе в режим приложение просит имя, регистрирует его на backend и
-дальше работает через реальные HTTP/WebSocket-запросы — это уже не локальная
-имитация на одном устройстве, два разных телефона видят друг друга по-настоящему.
+При первом входе в режим приложение подтверждает номер телефона через Firebase Phone
+Auth (SMS-код), затем просит имя, регистрирует на backend и дальше работает через
+реальные HTTP/WebSocket-запросы — это уже не локальная имитация на одном устройстве,
+два разных телефона видят друг друга по-настоящему.
+
+## Подтверждение номера — Firebase Phone Auth
+
+`auth/PhoneAuthClient.kt` — обёртка над Firebase Auth: ввод номера → SMS с кодом →
+ввод кода → Firebase выдаёт ID-токен, который уходит на backend вместе с остальными
+данными регистрации (`RegisterRequest.firebaseIdToken`). Сам backend должен проверить
+токен через Firebase Admin SDK и достать из него уже подтверждённый номер — так на
+клиенте нельзя подделать «я подтвердил номер», не пройдя реальную SMS-проверку.
+
+Требует `taxiapp/google-services.json` (в репозитории — это не секрет, тот же файл
+всё равно упаковывается в каждый apk и виден кому угодно после распаковки) и включённый
+провайдер **Phone** в Firebase Console → Authentication → Sign-in method. Firebase Phone
+Auth работает только на платном плане Blaze (pay-as-you-go) — это требование самого
+Google, не решение этого проекта; при этом переход на Blaze сам по себе бесплатный,
+платите только за реально отправленные SMS.
+
+**Для разработки/тестов**, чтобы не тратить реальные SMS: Firebase Console →
+Authentication → Sign-in method → Phone → **Phone numbers for testing** — можно
+добавить тестовый номер с фиксированным кодом (например `+998900000000` → `123456`),
+подтверждается мгновенно, без реальной отправки.
 
 ## Кто считает цену и почему
 
@@ -36,10 +57,12 @@ Android-приложение на Kotlin + Jetpack Compose: один и тот �
 Отдельный сервис (не в этом репозитории) — Node.js на VPS пользователя. Контракт,
 который ожидает мобильное приложение (`network/ApiService.kt`, `network/Dto.kt`):
 
-- `POST /auth/register` `{role: "passenger"|"driver", name, carMake?, carColor?,
-  carPlate?, clickHandle?}` → `{token, userId, role, name}`. Поля `carMake/carColor/
-  carPlate/clickHandle` осмысленны только для `role: "driver"` — backend должен их
-  сохранить в профиле водителя (пока необязательные, приложение их не требует).
+- `POST /auth/register` `{firebaseIdToken, role: "passenger"|"driver", name, carMake?,
+  carColor?, carPlate?, clickHandle?}` → `{token, userId, role, name}`. `firebaseIdToken`
+  — обязателен, backend проверяет его через Firebase Admin SDK и достаёт подтверждённый
+  номер телефона (см. «Подтверждение номера» выше) — это заменило прежнюю идею с
+  `phone`/`password` в теле запроса, отдельный пароль больше не нужен. Поля
+  `carMake/carColor/carPlate/clickHandle` осмысленны только для `role: "driver"`.
 - `POST /rides` (Bearer-токен) `{fromAddress, toAddress, distanceKm, durationMin,
   paymentMethod: "CASH"|"CARD"|"CLICK"}` → объект поездки с полем `price` (`baseFare,
   distanceCost, timeCost, demandFactor, total, commission, driverPayout`), `status`
@@ -123,9 +146,8 @@ Google Cloud (ключ, биллинг-аккаунт, SHA-1-ограничен�
 
 ## Честно о статусе
 
-- **Авторизация упрощённая** — только имя, без пароля/SMS-подтверждения номера. Для
-  реального сервиса нужна верификация телефона (иначе кто угодно зарегистрируется
-  «водителем»). Требует SMS-шлюза (платный сервис, отдельный аккаунт) — не сделано.
+- **Номер телефона теперь подтверждается по SMS** (Firebase Phone Auth) — см. раздел
+  выше. Пароля по-прежнему нет: номер + код из SMS и есть способ входа.
 - **Нет истории поездок, рейтингов, профиля, загрузки документов водителя.**
 - **Оплата — выбор способа, не реальное списание.** Пассажир выбирает наличные / карту
   водителю / Click, backend это только записывает. Осознанно НЕ добавлено поле для
@@ -150,7 +172,8 @@ Google Cloud (ключ, биллинг-аккаунт, SHA-1-ограничен�
 
 Kotlin, Jetpack Compose (Material 3), Navigation Compose, Retrofit + Moshi + OkHttp
 (HTTP и WebSocket), osmdroid + OpenStreetMap/Nominatim/OSRM (карта, адреса, маршрут —
-без ключей), `minSdk 24`. Отдельный Gradle-модуль `:taxiapp` в этом же репозитории —
+без ключей), Firebase Auth (подтверждение номера по SMS), `minSdk 24`. Отдельный
+Gradle-модуль `:taxiapp` в этом же репозитории —
 существующее приложение «Призрак» (`:app`) не затронуто.
 
 ## Сборка APK через GitHub Actions

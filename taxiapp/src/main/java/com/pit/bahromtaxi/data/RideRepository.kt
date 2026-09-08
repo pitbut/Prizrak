@@ -53,6 +53,7 @@ object RideRepository {
     }
 
     suspend fun register(
+        firebaseIdToken: String,
         role: String,
         name: String,
         carMake: String? = null,
@@ -60,7 +61,9 @@ object RideRepository {
         carPlate: String? = null,
         clickHandle: String? = null
     ): Boolean = runCatching {
-        val response = api.register(RegisterRequest(role, name, carMake, carColor, carPlate, clickHandle))
+        val response = api.register(
+            RegisterRequest(firebaseIdToken, role, name, carMake, carColor, carPlate, clickHandle)
+        )
         AuthStore.token = response.token
         AuthStore.userId = response.userId
         AuthStore.role = response.role

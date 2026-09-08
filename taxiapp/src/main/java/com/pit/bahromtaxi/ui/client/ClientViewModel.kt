@@ -1,10 +1,13 @@
 package com.pit.bahromtaxi.ui.client
 
+import android.app.Activity
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.pit.bahromtaxi.auth.PhoneAuthClient
+import com.pit.bahromtaxi.auth.PhoneCodeResult
 import com.pit.bahromtaxi.data.RideRepository
 import com.pit.bahromtaxi.domain.PaymentMethod
 import com.pit.bahromtaxi.domain.PriceBreakdown
@@ -17,7 +20,19 @@ import com.pit.bahromtaxi.network.AuthStore
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 
+enum class AuthStep { PHONE, CODE, PROFILE }
+
 class ClientViewModel : ViewModel() {
+
+    var authStep by mutableStateOf(AuthStep.PHONE)
+    var phoneInput by mutableStateOf("+998")
+    var codeInput by mutableStateOf("")
+    var authLoading by mutableStateOf(false)
+        private set
+    var authError by mutableStateOf<String?>(null)
+        private set
+    private var verificationId: String? = null
+    private var firebaseIdToken: String? = null
 
     var nameInput by mutableStateOf("")
     var registering by mutableStateOf(false)
@@ -51,6 +66,41 @@ class ClientViewModel : ViewModel() {
     /** Оценочная цена по реальному маршруту — окончательную (с учётом спроса) вернёт backend. */
     val estimate: PriceBreakdown?
         get() = route?.let { PricingEngine.calculate(it.distanceKm, it.durationMin, demandFactor = 1.0) }
+
+    fun sendCode(activity: Activity) {
+        authError = null
+        authLoading = true
+        viewModelScope.launch {
+            runCatching { PhoneAuthClient.sendCode(activity, phoneInput.trim()) }
+                .onSuccess { result ->
+                    when (result) {
+                        is PhoneCodeResult.CodeSent -> {
+                            verificationId = result.verificationId
+                            authStep = AuthStep.CODE
+                        }
+                        is PhoneCodeResult.AutoVerified -> {
+                            runCatching { PhoneAuthClient.signIn(result.credential) }
+                                .onSuccess { token -> firebaseIdToken = token; authStep = AuthStep.PROFILE }
+                                .onFailure { authError = "Не удалось подтвердить номер: ${it.message}" }
+                        }
+                    }
+                }
+                .onFailure { authError = "Не удалось отправить код: ${it.message}" }
+            authLoading = false
+        }
+    }
+
+    fun confirmCode() {
+        val vId = verificationId ?: return
+        authError = null
+        authLoading = true
+        viewModelScope.launch {
+            runCatching { PhoneAuthClient.confirmCode(vId, codeInput.trim()) }
+                .onSuccess { token -> firebaseIdToken = token; authStep = AuthStep.PROFILE }
+                .onFailure { authError = "Неверный код: ${it.message}" }
+            authLoading = false
+        }
+    }
 
     fun startPicking(target: PickTarget) {
         pickTarget = target
@@ -91,10 +141,11 @@ class ClientViewModel : ViewModel() {
     }
 
     fun register(onDone: () -> Unit) {
+        val token = firebaseIdToken ?: return
         val name = nameInput.trim().ifBlank { "Пассажир" }
         registering = true
         viewModelScope.launch {
-            RideRepository.register("passenger", name)
+            RideRepository.register(token, "passenger", name)
             registering = false
             onDone()
         }

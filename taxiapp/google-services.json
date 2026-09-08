@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "152171855417",
+    "project_id": "bahrom-taxi",
+    "storage_bucket": "bahrom-taxi.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:152171855417:android:56fd2f087cdbb381bf17e8",
+        "android_client_info": {
+          "package_name": "com.pit.bahromtaxi"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyB2Kbq9QyibTypLtEBI0W65aZbPKGSp_YU"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

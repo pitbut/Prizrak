@@ -1,6 +1,7 @@
 package com.pit.bahromtaxi.ui.client
 
 import android.Manifest
+import android.app.Activity
 import android.content.pm.PackageManager
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -125,12 +126,7 @@ fun ClientScreen(viewModel: ClientViewModel, onBack: () -> Unit) {
                 Spacer(Modifier.height(8.dp))
             }
             when {
-                !registered -> NameGate(
-                    name = viewModel.nameInput,
-                    onNameChange = { viewModel.nameInput = it },
-                    loading = viewModel.registering,
-                    onSubmit = { viewModel.register { registered = true } }
-                )
+                !registered -> PhoneAuthGate(viewModel = viewModel, onDone = { registered = true })
                 activeRide == null || activeRide.status == RideStatus.CANCELLED -> OrderForm(
                     viewModel = viewModel,
                     locationGranted = locationGranted,
@@ -156,17 +152,65 @@ fun ClientScreen(viewModel: ClientViewModel, onBack: () -> Unit) {
 }
 
 @Composable
-private fun NameGate(name: String, onNameChange: (String) -> Unit, loading: Boolean, onSubmit: () -> Unit) {
+private fun PhoneAuthGate(viewModel: ClientViewModel, onDone: () -> Unit) {
+    val activity = LocalContext.current as Activity
+
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        Text("Как к вам обращаться?", fontWeight = FontWeight.Bold)
-        OutlinedTextField(
-            value = name,
-            onValueChange = onNameChange,
-            label = { Text("Имя") },
-            modifier = Modifier.fillMaxWidth()
-        )
-        Button(onClick = onSubmit, enabled = !loading, modifier = Modifier.fillMaxWidth().height(52.dp)) {
-            if (loading) CircularProgressIndicator(modifier = Modifier.height(20.dp)) else Text("Продолжить")
+        viewModel.authError?.let {
+            Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
+        }
+        when (viewModel.authStep) {
+            AuthStep.PHONE -> {
+                Text("Ваш номер телефона", fontWeight = FontWeight.Bold)
+                OutlinedTextField(
+                    value = viewModel.phoneInput,
+                    onValueChange = { viewModel.phoneInput = it },
+                    label = { Text("+998901234567") },
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = true
+                )
+                Button(
+                    onClick = { viewModel.sendCode(activity) },
+                    enabled = !viewModel.authLoading,
+                    modifier = Modifier.fillMaxWidth().height(52.dp)
+                ) {
+                    if (viewModel.authLoading) CircularProgressIndicator(modifier = Modifier.height(20.dp)) else Text("Получить код")
+                }
+            }
+            AuthStep.CODE -> {
+                Text("Код из SMS", fontWeight = FontWeight.Bold)
+                Text("Отправлен на ${viewModel.phoneInput}", style = MaterialTheme.typography.bodySmall)
+                OutlinedTextField(
+                    value = viewModel.codeInput,
+                    onValueChange = { viewModel.codeInput = it },
+                    label = { Text("Код") },
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = true
+                )
+                Button(
+                    onClick = { viewModel.confirmCode() },
+                    enabled = !viewModel.authLoading,
+                    modifier = Modifier.fillMaxWidth().height(52.dp)
+                ) {
+                    if (viewModel.authLoading) CircularProgressIndicator(modifier = Modifier.height(20.dp)) else Text("Подтвердить")
+                }
+            }
+            AuthStep.PROFILE -> {
+                Text("Как к вам обращаться?", fontWeight = FontWeight.Bold)
+                OutlinedTextField(
+                    value = viewModel.nameInput,
+                    onValueChange = { viewModel.nameInput = it },
+                    label = { Text("Имя") },
+                    modifier = Modifier.fillMaxWidth()
+                )
+                Button(
+                    onClick = { viewModel.register(onDone) },
+                    enabled = !viewModel.registering,
+                    modifier = Modifier.fillMaxWidth().height(52.dp)
+                ) {
+                    if (viewModel.registering) CircularProgressIndicator(modifier = Modifier.height(20.dp)) else Text("Продолжить")
+                }
+            }
         }
     }
 }
