@@ -1,0 +1,19 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <!-- Simple checker cab silhouette on a yellow field -->
+    <path
+        android:fillColor="#FFC400"
+        android:pathData="M30,64 L34,46 C35,42 38,40 42,40 L66,40 C70,40 73,42 74,46 L78,64 L78,76 C78,78.2 76.2,80 74,80 L72,80 C69.8,80 68,78.2 68,76 L68,72 L40,72 L40,76 C40,78.2 38.2,80 36,80 L34,80 C31.8,80 30,78.2 30,76 Z" />
+    <path
+        android:fillColor="#1A1A1A"
+        android:pathData="M38,64 L70,64 L70,66 L38,66 Z" />
+    <path
+        android:fillColor="#1A1A1A"
+        android:pathData="M38,50m-5,0a5,5 0,1 1,10 0a5,5 0,1 1,-10 0" />
+    <path
+        android:fillColor="#1A1A1A"
+        android:pathData="M70,50m-5,0a5,5 0,1 1,10 0a5,5 0,1 1,-10 0" />
+</vector>
