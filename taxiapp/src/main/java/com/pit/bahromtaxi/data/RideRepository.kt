@@ -1,6 +1,7 @@
 package com.pit.bahromtaxi.data
 
 import com.pit.bahromtaxi.domain.PriceBreakdown
+import com.pit.bahromtaxi.domain.PaymentMethod
 import com.pit.bahromtaxi.domain.Ride
 import com.pit.bahromtaxi.domain.RideStatus
 import com.pit.bahromtaxi.network.ApiClient
@@ -51,8 +52,15 @@ object RideRepository {
         socket = RideSocket { event -> handleEvent(event) }.also { it.connect() }
     }
 
-    suspend fun register(role: String, name: String): Boolean = runCatching {
-        val response = api.register(RegisterRequest(role, name))
+    suspend fun register(
+        role: String,
+        name: String,
+        carMake: String? = null,
+        carColor: String? = null,
+        carPlate: String? = null,
+        clickHandle: String? = null
+    ): Boolean = runCatching {
+        val response = api.register(RegisterRequest(role, name, carMake, carColor, carPlate, clickHandle))
         AuthStore.token = response.token
         AuthStore.userId = response.userId
         AuthStore.role = response.role
@@ -77,10 +85,13 @@ object RideRepository {
         toAddress: String,
         distanceKm: Double,
         durationMin: Double,
+        paymentMethod: PaymentMethod,
         onResult: (Ride?) -> Unit
     ) {
         scope.launch {
-            val ride = runCatching { api.createRide(CreateRideRequest(fromAddress, toAddress, distanceKm, durationMin)) }
+            val ride = runCatching {
+                api.createRide(CreateRideRequest(fromAddress, toAddress, distanceKm, durationMin, paymentMethod.name))
+            }
                 .onFailure { _lastError.value = "Не удалось создать заказ: ${it.message}" }
                 .getOrNull()
                 ?.toDomain()
@@ -176,6 +187,8 @@ object RideRepository {
         ),
         status = runCatching { RideStatus.valueOf(status) }.getOrDefault(RideStatus.SEARCHING),
         driverId = driverId,
-        driverName = driverName
+        driverName = driverName,
+        paymentMethod = runCatching { PaymentMethod.valueOf(paymentMethod ?: "CASH") }.getOrDefault(PaymentMethod.CASH),
+        driverClickHandle = driverClickHandle
     )
 }

@@ -37,8 +37,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.pit.bahromtaxi.data.RideRepository
+import com.pit.bahromtaxi.domain.PaymentMethod
 import com.pit.bahromtaxi.domain.Ride
 import com.pit.bahromtaxi.domain.RideStatus
+import com.pit.bahromtaxi.domain.label
 import java.util.Locale
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -85,12 +87,7 @@ fun DriverScreen(viewModel: DriverViewModel, onBack: () -> Unit) {
             }
 
             if (!registered) {
-                NameGate(
-                    name = viewModel.nameInput,
-                    onNameChange = { viewModel.nameInput = it },
-                    loading = viewModel.registering,
-                    onSubmit = { viewModel.register { registered = true } }
-                )
+                NameGate(viewModel = viewModel, onSubmit = { registered = true })
                 return@Column
             }
 
@@ -133,30 +130,52 @@ fun DriverScreen(viewModel: DriverViewModel, onBack: () -> Unit) {
 }
 
 @Composable
-private fun NameGate(
-    name: String,
-    onNameChange: (String) -> Unit,
-    loading: Boolean,
-    onSubmit: () -> Unit
-) {
+private fun NameGate(viewModel: DriverViewModel, onSubmit: () -> Unit) {
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        Text("Как к вам обращаться?", fontWeight = FontWeight.Bold)
+        Text("Данные водителя", fontWeight = FontWeight.Bold)
         OutlinedTextField(
-            value = name,
-            onValueChange = onNameChange,
+            value = viewModel.nameInput,
+            onValueChange = { viewModel.nameInput = it },
             label = { Text("Имя") },
             modifier = Modifier.fillMaxWidth()
         )
+        OutlinedTextField(
+            value = viewModel.carMake,
+            onValueChange = { viewModel.carMake = it },
+            label = { Text("Марка и модель авто") },
+            modifier = Modifier.fillMaxWidth()
+        )
+        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            OutlinedTextField(
+                value = viewModel.carColor,
+                onValueChange = { viewModel.carColor = it },
+                label = { Text("Цвет") },
+                modifier = Modifier.weight(1f)
+            )
+            OutlinedTextField(
+                value = viewModel.carPlate,
+                onValueChange = { viewModel.carPlate = it },
+                label = { Text("Гос. номер") },
+                modifier = Modifier.weight(1f)
+            )
+        }
+        OutlinedTextField(
+            value = viewModel.clickHandle,
+            onValueChange = { viewModel.clickHandle = it },
+            label = { Text("Click для оплаты (телефон, необязательно)") },
+            modifier = Modifier.fillMaxWidth()
+        )
+        Text(
+            "Марка, цвет и номер помогают пассажиру узнать машину. Click — если хотите принимать " +
+                "оплату переводом, а не только наличными или картой на месте.",
+            style = MaterialTheme.typography.bodySmall
+        )
         Button(
-            onClick = onSubmit,
-            enabled = !loading,
+            onClick = { viewModel.register(onSubmit) },
+            enabled = !viewModel.registering,
             modifier = Modifier.fillMaxWidth().height(52.dp)
         ) {
-            if (loading) {
-                CircularProgressIndicator(modifier = Modifier.height(20.dp))
-            } else {
-                Text("Продолжить")
-            }
+            if (viewModel.registering) CircularProgressIndicator(modifier = Modifier.height(20.dp)) else Text("Продолжить")
         }
     }
 }
@@ -181,7 +200,7 @@ private fun PendingRideCard(ride: Ride, onAccept: () -> Unit) {
     Card(modifier = Modifier.fillMaxWidth()) {
         Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
             Text("${ride.fromAddress} → ${ride.toAddress}", fontWeight = FontWeight.Bold)
-            Text("${fmt1(ride.distanceKm)} км · ${ride.durationMin.toInt()} мин")
+            Text("${fmt1(ride.distanceKm)} км · ${ride.durationMin.toInt()} мин · ${ride.paymentMethod.label}")
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -205,7 +224,13 @@ private fun DriverRideCard(ride: Ride, viewModel: DriverViewModel) {
     Card(modifier = Modifier.fillMaxWidth()) {
         Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Text("${ride.fromAddress} → ${ride.toAddress}", fontWeight = FontWeight.Bold)
-            Text("Заказ: ${ride.price.total.toInt()} ₽ · Вам: ${ride.price.driverPayout.toInt()} ₽")
+            Text("Заказ: ${ride.price.total.toInt()} ₽ · Вам: ${ride.price.driverPayout.toInt()} ₽ · ${ride.paymentMethod.label}")
+            if (ride.paymentMethod == PaymentMethod.CLICK) {
+                Text(
+                    "Пассажир увидит ваш Click-номер из профиля для перевода.",
+                    style = MaterialTheme.typography.bodySmall
+                )
+            }
             when (ride.status) {
                 RideStatus.ACCEPTED -> Button(
                     onClick = { viewModel.start(ride.id) },

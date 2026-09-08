@@ -19,10 +19,19 @@ data class RideDto(
     val status: String,
     val price: PriceDto,
     val driverId: String? = null,
-    val driverName: String? = null
+    val driverName: String? = null,
+    val paymentMethod: String? = null,
+    val driverClickHandle: String? = null
 )
 
-data class RegisterRequest(val role: String, val name: String)
+data class RegisterRequest(
+    val role: String,
+    val name: String,
+    val carMake: String? = null,
+    val carColor: String? = null,
+    val carPlate: String? = null,
+    val clickHandle: String? = null
+)
 
 data class AuthResponse(val token: String, val userId: String, val role: String, val name: String)
 
@@ -30,7 +39,8 @@ data class CreateRideRequest(
     val fromAddress: String,
     val toAddress: String,
     val distanceKm: Double,
-    val durationMin: Double
+    val durationMin: Double,
+    val paymentMethod: String
 )
 
 data class OnlineRequest(val online: Boolean)

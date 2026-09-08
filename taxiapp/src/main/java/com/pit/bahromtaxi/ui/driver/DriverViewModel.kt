@@ -14,6 +14,10 @@ import kotlinx.coroutines.launch
 class DriverViewModel : ViewModel() {
 
     var nameInput by mutableStateOf("")
+    var carMake by mutableStateOf("")
+    var carColor by mutableStateOf("")
+    var carPlate by mutableStateOf("")
+    var clickHandle by mutableStateOf("")
     var registering by mutableStateOf(false)
         private set
 
@@ -30,7 +34,14 @@ class DriverViewModel : ViewModel() {
         val name = nameInput.trim().ifBlank { "Водитель" }
         registering = true
         viewModelScope.launch {
-            RideRepository.register("driver", name)
+            RideRepository.register(
+                role = "driver",
+                name = name,
+                carMake = carMake.trim().ifBlank { null },
+                carColor = carColor.trim().ifBlank { null },
+                carPlate = carPlate.trim().ifBlank { null },
+                clickHandle = clickHandle.trim().ifBlank { null }
+            )
             RideRepository.refreshCommission()
             registering = false
             onDone()

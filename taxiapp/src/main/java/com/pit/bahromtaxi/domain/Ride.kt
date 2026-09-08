@@ -11,5 +11,7 @@ data class Ride(
     val price: PriceBreakdown,
     val status: RideStatus = RideStatus.SEARCHING,
     val driverId: String? = null,
-    val driverName: String? = null
+    val driverName: String? = null,
+    val paymentMethod: PaymentMethod = PaymentMethod.CASH,
+    val driverClickHandle: String? = null
 )
