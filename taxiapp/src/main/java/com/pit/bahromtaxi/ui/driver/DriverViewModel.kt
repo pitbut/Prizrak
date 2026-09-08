@@ -50,6 +50,25 @@ class DriverViewModel : ViewModel() {
         }
     }
 
+    var passwordResetSent by mutableStateOf(false)
+        private set
+
+    fun sendPasswordReset() {
+        val email = emailInput.trim()
+        if (email.isBlank()) {
+            authError = "Введите email, на который прислать ссылку"
+            return
+        }
+        authError = null
+        authLoading = true
+        viewModelScope.launch {
+            runCatching { EmailAuthClient.sendPasswordReset(email) }
+                .onSuccess { passwordResetSent = true }
+                .onFailure { authError = "Не удалось отправить письмо: ${it.message}" }
+            authLoading = false
+        }
+    }
+
     var nameInput by mutableStateOf("")
     var carMake by mutableStateOf("")
     var carColor by mutableStateOf("")

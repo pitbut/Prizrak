@@ -203,6 +203,17 @@ private fun PhoneAuthGate(viewModel: ClientViewModel, onDone: () -> Unit) {
                     ) {
                         if (viewModel.authLoading) CircularProgressIndicator(modifier = Modifier.height(20.dp)) else Text("Продолжить")
                     }
+                    if (viewModel.passwordResetSent) {
+                        Text(
+                            "Письмо со ссылкой для сброса пароля отправлено, если такой аккаунт существует.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                    } else {
+                        TextButton(onClick = { viewModel.sendPasswordReset() }, modifier = Modifier.fillMaxWidth()) {
+                            Text("Забыли пароль?")
+                        }
+                    }
                     TextButton(onClick = { viewModel.showEmailForm = false }, modifier = Modifier.fillMaxWidth()) {
                         Text("Назад к номеру телефона")
                     }

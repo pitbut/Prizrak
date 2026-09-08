@@ -32,9 +32,19 @@ object EmailAuthClient {
     private suspend fun register(auth: FirebaseAuth, email: String, password: String): String =
         suspendCancellableCoroutine { cont ->
             auth.createUserWithEmailAndPassword(email, password)
-                .addOnSuccessListener { resolveToken(it.user, cont) }
+                .addOnSuccessListener { result ->
+                    result.user?.sendEmailVerification()
+                    resolveToken(result.user, cont)
+                }
                 .addOnFailureListener { if (cont.isActive) cont.resumeWithException(it) }
         }
+
+    /** Firebase сам шлёт письмо со ссылкой сброса — backend тут не участвует вообще. */
+    suspend fun sendPasswordReset(email: String): Unit = suspendCancellableCoroutine { cont ->
+        FirebaseAuth.getInstance().sendPasswordResetEmail(email)
+            .addOnSuccessListener { if (cont.isActive) cont.resume(Unit) }
+            .addOnFailureListener { if (cont.isActive) cont.resumeWithException(it) }
+    }
 
     private fun resolveToken(user: FirebaseUser?, cont: CancellableContinuation<String>) {
         if (user == null) {
