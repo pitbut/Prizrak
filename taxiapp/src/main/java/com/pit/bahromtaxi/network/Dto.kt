@@ -22,7 +22,13 @@ data class RideDto(
     val driverName: String? = null,
     val paymentMethod: String? = null,
     val driverClickHandle: String? = null,
-    val createdAt: String? = null
+    val createdAt: String? = null,
+    val driverPhone: String? = null,
+    val passengerName: String? = null,
+    val passengerPhone: String? = null,
+    val type: String? = null,
+    val senderPhone: String? = null,
+    val receiverPhone: String? = null
 )
 
 data class RegisterRequest(
@@ -42,7 +48,10 @@ data class CreateRideRequest(
     val toAddress: String,
     val distanceKm: Double,
     val durationMin: Double,
-    val paymentMethod: String
+    val paymentMethod: String,
+    val type: String = "ride",
+    val senderPhone: String? = null,
+    val receiverPhone: String? = null
 )
 
 data class OnlineRequest(val online: Boolean)

@@ -10,6 +10,7 @@ import com.pit.bahromtaxi.auth.EmailAuthClient
 import com.pit.bahromtaxi.auth.PhoneAuthClient
 import com.pit.bahromtaxi.auth.PhoneCodeResult
 import com.pit.bahromtaxi.data.RideRepository
+import com.pit.bahromtaxi.domain.OrderType
 import com.pit.bahromtaxi.domain.PaymentMethod
 import com.pit.bahromtaxi.domain.PriceBreakdown
 import com.pit.bahromtaxi.domain.PricingEngine
@@ -137,6 +138,12 @@ class ClientViewModel : ViewModel() {
 
     var paymentMethod by mutableStateOf(PaymentMethod.CASH)
 
+    var orderType by mutableStateOf(OrderType.RIDE)
+    var senderPhoneInput by mutableStateOf("")
+    var receiverPhoneInput by mutableStateOf("")
+    var orderError by mutableStateOf<String?>(null)
+        private set
+
     var activeRideId by mutableStateOf<String?>(null)
         private set
 
@@ -237,7 +244,23 @@ class ClientViewModel : ViewModel() {
         val from = fromPlace ?: return
         val to = toPlace ?: return
         val r = route ?: return
-        RideRepository.createOrder(from.address, to.address, r.distanceKm, r.durationMin, paymentMethod) { ride ->
+        if (orderType == OrderType.DELIVERY) {
+            if (senderPhoneInput.isBlank() || receiverPhoneInput.isBlank()) {
+                orderError = "Укажите телефон отправителя и получателя"
+                return
+            }
+        }
+        orderError = null
+        RideRepository.createOrder(
+            fromAddress = from.address,
+            toAddress = to.address,
+            distanceKm = r.distanceKm,
+            durationMin = r.durationMin,
+            paymentMethod = paymentMethod,
+            orderType = orderType,
+            senderPhone = if (orderType == OrderType.DELIVERY) senderPhoneInput.trim() else null,
+            receiverPhone = if (orderType == OrderType.DELIVERY) receiverPhoneInput.trim() else null
+        ) { ride ->
             activeRideId = ride?.id
         }
     }
@@ -249,5 +272,7 @@ class ClientViewModel : ViewModel() {
         route = null
         routeError = null
         pickTarget = null
+        senderPhoneInput = ""
+        receiverPhoneInput = ""
     }
 }

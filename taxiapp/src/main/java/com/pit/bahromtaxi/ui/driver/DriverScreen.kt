@@ -1,6 +1,8 @@
 package com.pit.bahromtaxi.ui.driver
 
 import android.app.Activity
+import android.content.Intent
+import android.net.Uri
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -42,6 +44,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.pit.bahromtaxi.data.RideRepository
+import com.pit.bahromtaxi.domain.OrderType
 import com.pit.bahromtaxi.domain.PaymentMethod
 import com.pit.bahromtaxi.domain.Ride
 import com.pit.bahromtaxi.domain.RideStatus
@@ -328,6 +331,9 @@ private fun CommissionCard(owed: Double, paid: Double, onPay: () -> Unit) {
 private fun PendingRideCard(ride: Ride, onAccept: () -> Unit) {
     Card(modifier = Modifier.fillMaxWidth()) {
         Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            if (ride.orderType == OrderType.DELIVERY) {
+                Text("Доставка", color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
+            }
             Text("${ride.fromAddress} → ${ride.toAddress}", fontWeight = FontWeight.Bold)
             Text("${fmt1(ride.distanceKm)} км · ${ride.durationMin.toInt()} мин · ${ride.paymentMethod.label}")
             Row(
@@ -350,8 +356,12 @@ private fun PendingRideCard(ride: Ride, onAccept: () -> Unit) {
 
 @Composable
 private fun DriverRideCard(ride: Ride, viewModel: DriverViewModel) {
+    val context = LocalContext.current
     Card(modifier = Modifier.fillMaxWidth()) {
         Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            if (ride.orderType == OrderType.DELIVERY) {
+                Text("Доставка", color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
+            }
             Text("${ride.fromAddress} → ${ride.toAddress}", fontWeight = FontWeight.Bold)
             Text("Заказ: ${ride.price.total.toInt()} ₽ · Вам: ${ride.price.driverPayout.toInt()} ₽ · ${ride.paymentMethod.label}")
             if (ride.paymentMethod == PaymentMethod.CLICK) {
@@ -359,6 +369,15 @@ private fun DriverRideCard(ride: Ride, viewModel: DriverViewModel) {
                     "Пассажир увидит ваш Click-номер из профиля для перевода.",
                     style = MaterialTheme.typography.bodySmall
                 )
+            }
+            ride.passengerPhone?.let { phone ->
+                TextButton(onClick = { context.startActivity(Intent(Intent.ACTION_DIAL, Uri.parse("tel:$phone"))) }) {
+                    Text("Позвонить пассажиру${ride.passengerName?.let { " ($it)" } ?: ""}: $phone")
+                }
+            }
+            if (ride.orderType == OrderType.DELIVERY) {
+                ride.senderPhone?.let { Text("Телефон отправителя: $it", style = MaterialTheme.typography.bodySmall) }
+                ride.receiverPhone?.let { Text("Телефон получателя: $it", style = MaterialTheme.typography.bodySmall) }
             }
             when (ride.status) {
                 RideStatus.ACCEPTED -> Button(

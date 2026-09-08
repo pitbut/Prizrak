@@ -2,7 +2,9 @@ package com.pit.bahromtaxi.ui.client
 
 import android.Manifest
 import android.app.Activity
+import android.content.Intent
 import android.content.pm.PackageManager
+import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.clickable
@@ -62,6 +64,7 @@ import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import androidx.core.content.ContextCompat
 import com.pit.bahromtaxi.data.RideRepository
+import com.pit.bahromtaxi.domain.OrderType
 import com.pit.bahromtaxi.domain.PaymentMethod
 import com.pit.bahromtaxi.domain.PriceBreakdown
 import com.pit.bahromtaxi.domain.Ride
@@ -374,6 +377,16 @@ private fun OrderForm(
     val coroutineScope = rememberCoroutineScope()
 
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            OrderType.entries.forEach { type ->
+                FilterChip(
+                    selected = viewModel.orderType == type,
+                    onClick = { viewModel.orderType = type },
+                    label = { Text(type.label) }
+                )
+            }
+        }
+
         AddressRow(
             label = "Откуда",
             value = viewModel.fromPlace?.address,
@@ -388,6 +401,28 @@ private fun OrderForm(
             onClick = onSearchTo,
             onPickOnMap = { viewModel.startPicking(PickTarget.TO) }
         )
+
+        if (viewModel.orderType == OrderType.DELIVERY) {
+            OutlinedTextField(
+                value = viewModel.senderPhoneInput,
+                onValueChange = { viewModel.senderPhoneInput = it },
+                label = { Text("Телефон отправителя") },
+                placeholder = { Text("+998901234567") },
+                modifier = Modifier.fillMaxWidth(),
+                singleLine = true
+            )
+            OutlinedTextField(
+                value = viewModel.receiverPhoneInput,
+                onValueChange = { viewModel.receiverPhoneInput = it },
+                label = { Text("Телефон получателя") },
+                placeholder = { Text("+998901234567") },
+                modifier = Modifier.fillMaxWidth(),
+                singleLine = true
+            )
+        }
+        viewModel.orderError?.let {
+            Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
+        }
 
         OsmRouteMap(
             from = viewModel.fromPlace,
@@ -606,6 +641,7 @@ private fun PriceRow(label: String, value: Double, bold: Boolean = false) {
 
 @Composable
 private fun ActiveRideCard(ride: Ride, onNewOrder: () -> Unit) {
+    val context = LocalContext.current
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
         Card(modifier = Modifier.fillMaxWidth()) {
             Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -619,6 +655,15 @@ private fun ActiveRideCard(ride: Ride, onNewOrder: () -> Unit) {
                         "Click для оплаты: ${ride.driverClickHandle ?: "водитель ещё не указал реквизиты"}",
                         style = MaterialTheme.typography.bodySmall
                     )
+                }
+                if ((ride.status == RideStatus.ACCEPTED || ride.status == RideStatus.IN_PROGRESS) &&
+                    ride.driverPhone != null
+                ) {
+                    TextButton(onClick = {
+                        context.startActivity(Intent(Intent.ACTION_DIAL, Uri.parse("tel:${ride.driverPhone}")))
+                    }) {
+                        Text("Позвонить водителю: ${ride.driverPhone}")
+                    }
                 }
             }
         }

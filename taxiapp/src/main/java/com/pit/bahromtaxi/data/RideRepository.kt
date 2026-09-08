@@ -1,6 +1,7 @@
 package com.pit.bahromtaxi.data
 
 import com.pit.bahromtaxi.domain.PriceBreakdown
+import com.pit.bahromtaxi.domain.OrderType
 import com.pit.bahromtaxi.domain.PaymentMethod
 import com.pit.bahromtaxi.domain.Ride
 import com.pit.bahromtaxi.domain.RideStatus
@@ -91,11 +92,21 @@ object RideRepository {
         distanceKm: Double,
         durationMin: Double,
         paymentMethod: PaymentMethod,
+        orderType: OrderType = OrderType.RIDE,
+        senderPhone: String? = null,
+        receiverPhone: String? = null,
         onResult: (Ride?) -> Unit
     ) {
         scope.launch {
             val ride = runCatching {
-                api.createRide(CreateRideRequest(fromAddress, toAddress, distanceKm, durationMin, paymentMethod.name))
+                api.createRide(
+                    CreateRideRequest(
+                        fromAddress, toAddress, distanceKm, durationMin, paymentMethod.name,
+                        type = orderType.name.lowercase(),
+                        senderPhone = senderPhone,
+                        receiverPhone = receiverPhone
+                    )
+                )
             }
                 .onFailure { _lastError.value = "Не удалось создать заказ: ${it.message}" }
                 .getOrNull()
@@ -211,6 +222,12 @@ object RideRepository {
         driverName = driverName,
         paymentMethod = runCatching { PaymentMethod.valueOf(paymentMethod ?: "CASH") }.getOrDefault(PaymentMethod.CASH),
         driverClickHandle = driverClickHandle,
-        createdAt = createdAt
+        createdAt = createdAt,
+        driverPhone = driverPhone,
+        passengerName = passengerName,
+        passengerPhone = passengerPhone,
+        orderType = runCatching { OrderType.valueOf((type ?: "ride").uppercase()) }.getOrDefault(OrderType.RIDE),
+        senderPhone = senderPhone,
+        receiverPhone = receiverPhone
     )
 }

@@ -14,5 +14,11 @@ data class Ride(
     val driverName: String? = null,
     val paymentMethod: PaymentMethod = PaymentMethod.CASH,
     val driverClickHandle: String? = null,
-    val createdAt: String? = null
+    val createdAt: String? = null,
+    val driverPhone: String? = null,
+    val passengerName: String? = null,
+    val passengerPhone: String? = null,
+    val orderType: OrderType = OrderType.RIDE,
+    val senderPhone: String? = null,
+    val receiverPhone: String? = null
 )
