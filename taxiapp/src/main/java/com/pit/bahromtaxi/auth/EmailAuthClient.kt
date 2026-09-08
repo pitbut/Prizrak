@@ -1,46 +1,38 @@
 package com.pit.bahromtaxi.auth
 
 import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.auth.FirebaseAuthInvalidCredentialsException
+import com.google.firebase.auth.FirebaseAuthInvalidUserException
+import com.google.firebase.auth.FirebaseAuthUserCollisionException
 import com.google.firebase.auth.FirebaseUser
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
 import kotlinx.coroutines.CancellableContinuation
 import kotlinx.coroutines.suspendCancellableCoroutine
 
-data class EmailAuthResult(val token: String, val isNewAccount: Boolean)
-
-/**
- * Email/пароль: если аккаунта с таким email ещё нет — создаёт его и шлёт письмо
- * подтверждения, иначе логинит (для пользователя это один и тот же экран
- * "Продолжить", без отдельной формы регистрации).
- */
+/** Явные операции регистрации и входа по email/паролю — режим выбирает пользователь на экране, а не угадывается по ошибке. */
 object EmailAuthClient {
 
-    suspend fun signInOrRegister(email: String, password: String): EmailAuthResult {
+    suspend fun register(email: String, password: String): String {
         val auth = FirebaseAuth.getInstance()
-        return try {
-            EmailAuthResult(signIn(auth, email, password), isNewAccount = false)
-        } catch (e: Exception) {
-            EmailAuthResult(register(auth, email, password), isNewAccount = true)
-        }
-    }
-
-    private suspend fun signIn(auth: FirebaseAuth, email: String, password: String): String =
-        suspendCancellableCoroutine { cont ->
-            auth.signInWithEmailAndPassword(email, password)
-                .addOnSuccessListener { resolveToken(it.user, cont) }
-                .addOnFailureListener { if (cont.isActive) cont.resumeWithException(it) }
-        }
-
-    private suspend fun register(auth: FirebaseAuth, email: String, password: String): String =
-        suspendCancellableCoroutine { cont ->
+        return suspendCancellableCoroutine { cont ->
             auth.createUserWithEmailAndPassword(email, password)
                 .addOnSuccessListener { result ->
                     result.user?.sendEmailVerification()
                     resolveToken(result.user, cont)
                 }
-                .addOnFailureListener { if (cont.isActive) cont.resumeWithException(it) }
+                .addOnFailureListener { if (cont.isActive) cont.resumeWithException(friendlyError(it)) }
         }
+    }
+
+    suspend fun signIn(email: String, password: String): String {
+        val auth = FirebaseAuth.getInstance()
+        return suspendCancellableCoroutine { cont ->
+            auth.signInWithEmailAndPassword(email, password)
+                .addOnSuccessListener { resolveToken(it.user, cont) }
+                .addOnFailureListener { if (cont.isActive) cont.resumeWithException(friendlyError(it)) }
+        }
+    }
 
     /** Firebase сам шлёт письмо со ссылкой сброса — backend тут не участвует вообще. */
     suspend fun sendPasswordReset(email: String): Unit = suspendCancellableCoroutine { cont ->
@@ -70,6 +62,14 @@ object EmailAuthClient {
         user.sendEmailVerification()
             .addOnSuccessListener { if (cont.isActive) cont.resume(Unit) }
             .addOnFailureListener { if (cont.isActive) cont.resumeWithException(it) }
+    }
+
+    private fun friendlyError(e: Exception): Exception = when (e) {
+        is FirebaseAuthUserCollisionException ->
+            IllegalStateException("Этот email уже зарегистрирован — нажмите «Войти»")
+        is FirebaseAuthInvalidUserException, is FirebaseAuthInvalidCredentialsException ->
+            IllegalStateException("Неверный email или пароль, либо аккаунта нет — нажмите «Зарегистрироваться»")
+        else -> e
     }
 
     private fun resolveToken(user: FirebaseUser?, cont: CancellableContinuation<String>) {

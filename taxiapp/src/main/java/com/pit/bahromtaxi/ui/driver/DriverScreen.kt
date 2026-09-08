@@ -162,7 +162,8 @@ private fun PhoneAuthGate(viewModel: DriverViewModel, onDone: () -> Unit) {
                         Text("Войти по email вместо телефона")
                     }
                 } else {
-                    Text("Вход по email", fontWeight = FontWeight.Bold)
+                    val isRegister = viewModel.emailAuthMode == DriverEmailAuthMode.REGISTER
+                    Text(if (isRegister) "Регистрация по email" else "Вход по email", fontWeight = FontWeight.Bold)
                     OutlinedTextField(
                         value = viewModel.emailInput,
                         onValueChange = { viewModel.emailInput = it },
@@ -182,7 +183,11 @@ private fun PhoneAuthGate(viewModel: DriverViewModel, onDone: () -> Unit) {
                         enabled = !viewModel.authLoading,
                         modifier = Modifier.fillMaxWidth().height(52.dp)
                     ) {
-                        if (viewModel.authLoading) CircularProgressIndicator(modifier = Modifier.height(20.dp)) else Text("Продолжить")
+                        if (viewModel.authLoading) CircularProgressIndicator(modifier = Modifier.height(20.dp))
+                        else Text(if (isRegister) "Зарегистрироваться" else "Войти")
+                    }
+                    TextButton(onClick = { viewModel.toggleEmailAuthMode() }, modifier = Modifier.fillMaxWidth()) {
+                        Text(if (isRegister) "Уже есть аккаунт? Войти" else "Нет аккаунта? Зарегистрироваться")
                     }
                     if (viewModel.passwordResetSent) {
                         Text(

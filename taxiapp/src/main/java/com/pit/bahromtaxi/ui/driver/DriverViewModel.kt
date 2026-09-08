@@ -16,6 +16,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 
 enum class DriverAuthStep { PHONE, CODE, VERIFY_EMAIL, PROFILE }
+enum class DriverEmailAuthMode { REGISTER, LOGIN }
 
 class DriverViewModel : ViewModel() {
 
@@ -30,8 +31,14 @@ class DriverViewModel : ViewModel() {
     private var firebaseIdToken: String? = null
 
     var showEmailForm by mutableStateOf(false)
+    var emailAuthMode by mutableStateOf(DriverEmailAuthMode.REGISTER)
     var emailInput by mutableStateOf("")
     var passwordInput by mutableStateOf("")
+
+    fun toggleEmailAuthMode() {
+        emailAuthMode = if (emailAuthMode == DriverEmailAuthMode.REGISTER) DriverEmailAuthMode.LOGIN else DriverEmailAuthMode.REGISTER
+        authError = null
+    }
 
     fun continueWithEmail() {
         val email = emailInput.trim()
@@ -42,13 +49,22 @@ class DriverViewModel : ViewModel() {
         }
         authError = null
         authLoading = true
+        val mode = emailAuthMode
         viewModelScope.launch {
-            runCatching { EmailAuthClient.signInOrRegister(email, password) }
-                .onSuccess { result ->
-                    firebaseIdToken = result.token
-                    authStep = if (result.isNewAccount) DriverAuthStep.VERIFY_EMAIL else DriverAuthStep.PROFILE
+            val result = if (mode == DriverEmailAuthMode.REGISTER) {
+                runCatching { EmailAuthClient.register(email, password) }
+            } else {
+                runCatching { EmailAuthClient.signIn(email, password) }
+            }
+            result
+                .onSuccess { token ->
+                    firebaseIdToken = token
+                    authStep = if (mode == DriverEmailAuthMode.REGISTER) DriverAuthStep.VERIFY_EMAIL else DriverAuthStep.PROFILE
                 }
-                .onFailure { authError = "Не удалось войти: ${it.message}" }
+                .onFailure {
+                    authError = if (mode == DriverEmailAuthMode.REGISTER) "Не удалось зарегистрироваться: ${it.message}"
+                    else "Не удалось войти: ${it.message}"
+                }
             authLoading = false
         }
     }

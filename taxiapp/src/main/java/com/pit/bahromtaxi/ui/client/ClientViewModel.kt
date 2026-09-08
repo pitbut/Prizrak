@@ -22,6 +22,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 
 enum class AuthStep { PHONE, CODE, VERIFY_EMAIL, PROFILE }
+enum class EmailAuthMode { REGISTER, LOGIN }
 
 class ClientViewModel : ViewModel() {
 
@@ -36,8 +37,14 @@ class ClientViewModel : ViewModel() {
     private var firebaseIdToken: String? = null
 
     var showEmailForm by mutableStateOf(false)
+    var emailAuthMode by mutableStateOf(EmailAuthMode.REGISTER)
     var emailInput by mutableStateOf("")
     var passwordInput by mutableStateOf("")
+
+    fun toggleEmailAuthMode() {
+        emailAuthMode = if (emailAuthMode == EmailAuthMode.REGISTER) EmailAuthMode.LOGIN else EmailAuthMode.REGISTER
+        authError = null
+    }
 
     fun continueWithEmail() {
         val email = emailInput.trim()
@@ -48,13 +55,22 @@ class ClientViewModel : ViewModel() {
         }
         authError = null
         authLoading = true
+        val mode = emailAuthMode
         viewModelScope.launch {
-            runCatching { EmailAuthClient.signInOrRegister(email, password) }
-                .onSuccess { result ->
-                    firebaseIdToken = result.token
-                    authStep = if (result.isNewAccount) AuthStep.VERIFY_EMAIL else AuthStep.PROFILE
+            val result = if (mode == EmailAuthMode.REGISTER) {
+                runCatching { EmailAuthClient.register(email, password) }
+            } else {
+                runCatching { EmailAuthClient.signIn(email, password) }
+            }
+            result
+                .onSuccess { token ->
+                    firebaseIdToken = token
+                    authStep = if (mode == EmailAuthMode.REGISTER) AuthStep.VERIFY_EMAIL else AuthStep.PROFILE
                 }
-                .onFailure { authError = "Не удалось войти: ${it.message}" }
+                .onFailure {
+                    authError = if (mode == EmailAuthMode.REGISTER) "Не удалось зарегистрироваться: ${it.message}"
+                    else "Не удалось войти: ${it.message}"
+                }
             authLoading = false
         }
     }
