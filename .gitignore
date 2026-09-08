@@ -9,3 +9,7 @@
 .cxx
 app/build/
 app/src/main/assets/models/
+taxiapp/build/
+taxiapp/keystore.properties
+*.jks
+*.keystore

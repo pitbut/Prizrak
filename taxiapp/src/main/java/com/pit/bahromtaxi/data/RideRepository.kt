@@ -1,21 +1,33 @@
 package com.pit.bahromtaxi.data
 
-import com.pit.bahromtaxi.domain.PricingEngine
+import com.pit.bahromtaxi.domain.PriceBreakdown
 import com.pit.bahromtaxi.domain.Ride
 import com.pit.bahromtaxi.domain.RideStatus
+import com.pit.bahromtaxi.network.ApiClient
+import com.pit.bahromtaxi.network.AuthStore
+import com.pit.bahromtaxi.network.CreateRideRequest
+import com.pit.bahromtaxi.network.OnlineRequest
+import com.pit.bahromtaxi.network.RegisterRequest
+import com.pit.bahromtaxi.network.RideDto
+import com.pit.bahromtaxi.network.RideSocket
+import com.pit.bahromtaxi.network.WsEvent
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.launch
 
 /**
- * Заглушка сервера агрегатора для песочницы. В реальном сервисе матчинг заказов и
- * водителей, а также расчёт цены, происходят на бэкенде — здесь это общее состояние
- * в памяти процесса, чтобы режимы "Пассажир" и "Водитель" могли обмениваться заказами
- * прямо на одном устройстве.
+ * Клиент к backend на VPS (см. taxiapp/README.md, раздел «Backend»). Матчинг заказов,
+ * расчёт цены и коэффициента спроса — на сервере; здесь только запросы к его API и
+ * WebSocket для live-обновлений, локальной бизнес-логики цены больше нет.
  */
 object RideRepository {
 
-    private var nextId = 1L
+    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+    private val api = ApiClient.service
 
     private val _rides = MutableStateFlow<List<Ride>>(emptyList())
     val rides: StateFlow<List<Ride>> = _rides
@@ -29,65 +41,141 @@ object RideRepository {
     private val _commissionPaid = MutableStateFlow(0.0)
     val commissionPaid: StateFlow<Double> = _commissionPaid
 
+    private val _lastError = MutableStateFlow<String?>(null)
+    val lastError: StateFlow<String?> = _lastError
+
+    private var socket: RideSocket? = null
+
+    fun ensureConnected() {
+        if (socket != null) return
+        socket = RideSocket { event -> handleEvent(event) }.also { it.connect() }
+    }
+
+    suspend fun register(role: String, name: String): Boolean = runCatching {
+        val response = api.register(RegisterRequest(role, name))
+        AuthStore.token = response.token
+        AuthStore.userId = response.userId
+        AuthStore.role = response.role
+        AuthStore.name = response.name
+        ensureConnected()
+        true
+    }.getOrElse {
+        _lastError.value = "Не удалось подключиться к серверу: ${it.message}"
+        false
+    }
+
+    fun refreshPending() {
+        scope.launch {
+            runCatching { api.pendingRides() }
+                .onSuccess { list -> mergeRides(list.map { it.toDomain() }) }
+                .onFailure { _lastError.value = "Не удалось получить заказы: ${it.message}" }
+        }
+    }
+
+    fun createOrder(
+        fromAddress: String,
+        toAddress: String,
+        distanceKm: Double,
+        durationMin: Double,
+        onResult: (Ride?) -> Unit
+    ) {
+        scope.launch {
+            val ride = runCatching { api.createRide(CreateRideRequest(fromAddress, toAddress, distanceKm, durationMin)) }
+                .onFailure { _lastError.value = "Не удалось создать заказ: ${it.message}" }
+                .getOrNull()
+                ?.toDomain()
+            ride?.let { mergeRides(listOf(it)) }
+            onResult(ride)
+        }
+    }
+
     fun setDriverOnline(online: Boolean) {
+        val driverId = AuthStore.userId ?: return
         _driverOnline.value = online
+        scope.launch {
+            runCatching { api.setOnline(driverId, OnlineRequest(online)) }
+                .onFailure { _lastError.value = "Не удалось обновить статус: ${it.message}" }
+            if (online) refreshPending()
+        }
     }
 
-    /**
-     * Коэффициент спроса считает алгоритм от соотношения активных заказов и свободных
-     * водителей — так же, как повышающий коэффициент у реальных агрегаторов. Ни
-     * пассажир, ни водитель на него не влияют напрямую.
-     */
-    fun currentDemandFactor(): Double {
-        val pending = _rides.value.count { it.status == RideStatus.SEARCHING }
-        val freeDrivers = if (_driverOnline.value) 1 else 0
-        val ratio = if (freeDrivers == 0) (pending + 1).toDouble() else pending.toDouble() / freeDrivers
-        val factor = 1.0 + 0.2 * ratio
-        return (factor.coerceIn(1.0, 2.5) * 10.0).let(Math::round) / 10.0
+    fun acceptRide(rideId: String) = act { api.acceptRide(rideId) }
+    fun startRide(rideId: String) = act { api.startRide(rideId) }
+
+    fun completeRide(rideId: String) {
+        act { api.completeRide(rideId) }
+        refreshCommission()
     }
 
-    fun createOrder(fromAddress: String, toAddress: String, distanceKm: Double, durationMin: Double): Ride {
-        val demand = currentDemandFactor()
-        val price = PricingEngine.calculate(distanceKm, durationMin, demand)
-        val ride = Ride(
-            id = nextId++,
-            fromAddress = fromAddress,
-            toAddress = toAddress,
-            distanceKm = distanceKm,
-            durationMin = durationMin,
-            price = price,
-            status = RideStatus.SEARCHING
-        )
-        _rides.update { it + ride }
-        return ride
-    }
-
-    fun acceptRide(rideId: Long, driverName: String) {
-        updateRide(rideId) { it.copy(status = RideStatus.ACCEPTED, driverName = driverName) }
-    }
-
-    fun startRide(rideId: Long) {
-        updateRide(rideId) { it.copy(status = RideStatus.IN_PROGRESS) }
-    }
-
-    fun completeRide(rideId: Long) {
-        val ride = _rides.value.find { it.id == rideId } ?: return
-        updateRide(rideId) { it.copy(status = RideStatus.COMPLETED) }
-        _commissionOwed.update { it + ride.price.commission }
-    }
-
-    fun cancelRide(rideId: Long) {
-        updateRide(rideId) { it.copy(status = RideStatus.CANCELLED) }
+    fun refreshCommission() {
+        val driverId = AuthStore.userId ?: return
+        scope.launch {
+            runCatching { api.commission(driverId) }
+                .onSuccess {
+                    _commissionOwed.value = it.owed
+                    _commissionPaid.value = it.paid
+                }
+                .onFailure { _lastError.value = "Не удалось получить баланс комиссии: ${it.message}" }
+        }
     }
 
     fun payCommission() {
-        val owed = _commissionOwed.value
-        if (owed <= 0.0) return
-        _commissionPaid.update { it + owed }
-        _commissionOwed.value = 0.0
+        val driverId = AuthStore.userId ?: return
+        scope.launch {
+            runCatching { api.payCommission(driverId) }
+                .onSuccess {
+                    _commissionOwed.value = it.owed
+                    _commissionPaid.value = it.paid
+                }
+                .onFailure { _lastError.value = "Не удалось погасить комиссию: ${it.message}" }
+        }
     }
 
-    private fun updateRide(rideId: Long, transform: (Ride) -> Ride) {
-        _rides.update { list -> list.map { if (it.id == rideId) transform(it) else it } }
+    private fun act(call: suspend () -> RideDto) {
+        scope.launch {
+            runCatching { call() }
+                .onSuccess { mergeRides(listOf(it.toDomain())) }
+                .onFailure { _lastError.value = "Не удалось обновить заказ: ${it.message}" }
+        }
     }
+
+    private fun handleEvent(event: WsEvent) {
+        val ride = event.ride?.toDomain() ?: return
+        mergeRides(listOf(ride))
+        if (ride.status == RideStatus.COMPLETED && ride.driverId == AuthStore.userId) {
+            refreshCommission()
+        }
+    }
+
+    private fun mergeRides(updated: List<Ride>) {
+        _rides.update { current ->
+            val order = current.map { it.id }.toMutableList()
+            val byId = current.associateBy { it.id }.toMutableMap()
+            updated.forEach { ride ->
+                byId[ride.id] = ride
+                if (ride.id !in order) order.add(ride.id)
+            }
+            order.mapNotNull { byId[it] }
+        }
+    }
+
+    private fun RideDto.toDomain() = Ride(
+        id = id,
+        fromAddress = fromAddress,
+        toAddress = toAddress,
+        distanceKm = distanceKm,
+        durationMin = durationMin,
+        price = PriceBreakdown(
+            baseFare = price.baseFare,
+            distanceCost = price.distanceCost,
+            timeCost = price.timeCost,
+            demandFactor = price.demandFactor,
+            total = price.total,
+            commission = price.commission,
+            driverPayout = price.driverPayout
+        ),
+        status = runCatching { RideStatus.valueOf(status) }.getOrDefault(RideStatus.SEARCHING),
+        driverId = driverId,
+        driverName = driverName
+    )
 }

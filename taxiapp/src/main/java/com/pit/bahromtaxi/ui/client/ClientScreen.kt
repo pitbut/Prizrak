@@ -12,6 +12,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -24,11 +25,16 @@ import androidx.compose.material3.Slider
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.pit.bahromtaxi.data.RideRepository
 import com.pit.bahromtaxi.domain.PriceBreakdown
 import com.pit.bahromtaxi.domain.Ride
 import com.pit.bahromtaxi.domain.RideStatus
@@ -37,8 +43,14 @@ import java.util.Locale
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ClientScreen(viewModel: ClientViewModel, onBack: () -> Unit) {
+    var registered by remember { mutableStateOf(viewModel.isRegistered) }
     val rides by viewModel.rides.collectAsState()
+    val error by viewModel.lastError.collectAsState()
     val activeRide = rides.find { it.id == viewModel.activeRideId }
+
+    LaunchedEffect(registered) {
+        if (registered) RideRepository.ensureConnected()
+    }
 
     Scaffold(
         topBar = {
@@ -53,10 +65,50 @@ fun ClientScreen(viewModel: ClientViewModel, onBack: () -> Unit) {
         }
     ) { padding ->
         Column(modifier = Modifier.fillMaxSize().padding(padding).padding(16.dp)) {
-            if (activeRide == null || activeRide.status == RideStatus.CANCELLED) {
-                OrderForm(viewModel)
+            error?.let {
+                Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
+                Spacer(Modifier.height(8.dp))
+            }
+            when {
+                !registered -> NameGate(
+                    title = "Как к вам обращаться?",
+                    name = viewModel.nameInput,
+                    onNameChange = { viewModel.nameInput = it },
+                    loading = viewModel.registering,
+                    onSubmit = { viewModel.register { registered = true } }
+                )
+                activeRide == null || activeRide.status == RideStatus.CANCELLED -> OrderForm(viewModel)
+                else -> ActiveRideCard(activeRide, onNewOrder = { viewModel.resetOrder() })
+            }
+        }
+    }
+}
+
+@Composable
+private fun NameGate(
+    title: String,
+    name: String,
+    onNameChange: (String) -> Unit,
+    loading: Boolean,
+    onSubmit: () -> Unit
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        Text(title, fontWeight = FontWeight.Bold)
+        OutlinedTextField(
+            value = name,
+            onValueChange = onNameChange,
+            label = { Text("Имя") },
+            modifier = Modifier.fillMaxWidth()
+        )
+        Button(
+            onClick = onSubmit,
+            enabled = !loading,
+            modifier = Modifier.fillMaxWidth().height(52.dp)
+        ) {
+            if (loading) {
+                CircularProgressIndicator(modifier = Modifier.height(20.dp))
             } else {
-                ActiveRideCard(activeRide, onNewOrder = { viewModel.resetOrder() })
+                Text("Продолжить")
             }
         }
     }
@@ -108,17 +160,10 @@ private fun OrderForm(viewModel: ClientViewModel) {
 @Composable
 private fun PriceBreakdownView(price: PriceBreakdown) {
     Column(modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-        Text("Расчёт цены (считает алгоритм)", fontWeight = FontWeight.Bold)
+        Text("Оценочная цена (окончательную посчитает сервер)", fontWeight = FontWeight.Bold)
         PriceRow("Посадка", price.baseFare)
         PriceRow("За расстояние", price.distanceCost)
         PriceRow("За время в пути", price.timeCost)
-        if (price.demandFactor > 1.0) {
-            Text(
-                "Коэффициент спроса: ×${fmt1(price.demandFactor)} (заказов больше, чем свободных машин)",
-                color = MaterialTheme.colorScheme.error,
-                style = MaterialTheme.typography.bodySmall
-            )
-        }
         HorizontalDivider()
         PriceRow("Итого", price.total, bold = true)
     }
