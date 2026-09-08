@@ -21,7 +21,7 @@ import com.pit.bahromtaxi.network.AuthStore
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 
-enum class AuthStep { PHONE, CODE, PROFILE }
+enum class AuthStep { PHONE, CODE, VERIFY_EMAIL, PROFILE }
 
 class ClientViewModel : ViewModel() {
 
@@ -50,8 +50,33 @@ class ClientViewModel : ViewModel() {
         authLoading = true
         viewModelScope.launch {
             runCatching { EmailAuthClient.signInOrRegister(email, password) }
-                .onSuccess { token -> firebaseIdToken = token; authStep = AuthStep.PROFILE }
+                .onSuccess { result ->
+                    firebaseIdToken = result.token
+                    authStep = if (result.isNewAccount) AuthStep.VERIFY_EMAIL else AuthStep.PROFILE
+                }
                 .onFailure { authError = "Не удалось войти: ${it.message}" }
+            authLoading = false
+        }
+    }
+
+    fun checkEmailVerified() {
+        authError = null
+        authLoading = true
+        viewModelScope.launch {
+            runCatching { EmailAuthClient.refreshEmailVerified() }
+                .onSuccess { verified ->
+                    if (verified) authStep = AuthStep.PROFILE
+                    else authError = "Email ещё не подтверждён — перейдите по ссылке в письме и попробуйте снова."
+                }
+                .onFailure { authError = "Не удалось проверить: ${it.message}" }
+            authLoading = false
+        }
+    }
+
+    fun resendVerificationEmail() {
+        authLoading = true
+        viewModelScope.launch {
+            runCatching { EmailAuthClient.resendVerificationEmail() }
             authLoading = false
         }
     }

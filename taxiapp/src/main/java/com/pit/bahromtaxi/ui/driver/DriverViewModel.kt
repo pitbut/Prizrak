@@ -15,7 +15,7 @@ import com.pit.bahromtaxi.network.AuthStore
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 
-enum class DriverAuthStep { PHONE, CODE, PROFILE }
+enum class DriverAuthStep { PHONE, CODE, VERIFY_EMAIL, PROFILE }
 
 class DriverViewModel : ViewModel() {
 
@@ -44,8 +44,33 @@ class DriverViewModel : ViewModel() {
         authLoading = true
         viewModelScope.launch {
             runCatching { EmailAuthClient.signInOrRegister(email, password) }
-                .onSuccess { token -> firebaseIdToken = token; authStep = DriverAuthStep.PROFILE }
+                .onSuccess { result ->
+                    firebaseIdToken = result.token
+                    authStep = if (result.isNewAccount) DriverAuthStep.VERIFY_EMAIL else DriverAuthStep.PROFILE
+                }
                 .onFailure { authError = "Не удалось войти: ${it.message}" }
+            authLoading = false
+        }
+    }
+
+    fun checkEmailVerified() {
+        authError = null
+        authLoading = true
+        viewModelScope.launch {
+            runCatching { EmailAuthClient.refreshEmailVerified() }
+                .onSuccess { verified ->
+                    if (verified) authStep = DriverAuthStep.PROFILE
+                    else authError = "Email ещё не подтверждён — перейдите по ссылке в письме и попробуйте снова."
+                }
+                .onFailure { authError = "Не удалось проверить: ${it.message}" }
+            authLoading = false
+        }
+    }
+
+    fun resendVerificationEmail() {
+        authLoading = true
+        viewModelScope.launch {
+            runCatching { EmailAuthClient.resendVerificationEmail() }
             authLoading = false
         }
     }

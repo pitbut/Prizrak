@@ -237,6 +237,24 @@ private fun PhoneAuthGate(viewModel: ClientViewModel, onDone: () -> Unit) {
                     if (viewModel.authLoading) CircularProgressIndicator(modifier = Modifier.height(20.dp)) else Text("Подтвердить")
                 }
             }
+            AuthStep.VERIFY_EMAIL -> {
+                Text("Подтвердите email", fontWeight = FontWeight.Bold)
+                Text(
+                    "Мы отправили письмо на ${viewModel.emailInput}. Перейдите по ссылке в письме, " +
+                        "потом нажмите «Я подтвердил».",
+                    style = MaterialTheme.typography.bodyMedium
+                )
+                Button(
+                    onClick = { viewModel.checkEmailVerified() },
+                    enabled = !viewModel.authLoading,
+                    modifier = Modifier.fillMaxWidth().height(52.dp)
+                ) {
+                    if (viewModel.authLoading) CircularProgressIndicator(modifier = Modifier.height(20.dp)) else Text("Я подтвердил")
+                }
+                TextButton(onClick = { viewModel.resendVerificationEmail() }, modifier = Modifier.fillMaxWidth()) {
+                    Text("Отправить письмо ещё раз")
+                }
+            }
             AuthStep.PROFILE -> {
                 Text("Как к вам обращаться?", fontWeight = FontWeight.Bold)
                 OutlinedTextField(
