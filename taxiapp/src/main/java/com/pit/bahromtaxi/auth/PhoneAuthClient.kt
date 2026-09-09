@@ -19,6 +19,22 @@ sealed class PhoneCodeResult {
 /** Тонкая обёртка над Firebase Phone Auth в виде suspend-функций для Compose/coroutines. */
 object PhoneAuthClient {
 
+    // ВРЕМЕННО: разворачивает всю цепочку причин ошибки (Firebase часто прячет настоящую
+    // причину внутри cause, а в тосте показывает только внешнее обобщённое сообщение).
+    // Убрать после того, как разберёмся с "[Error code:39]" на Phone Auth.
+    fun describeError(e: Throwable): String {
+        val sb = StringBuilder()
+        var current: Throwable? = e
+        var depth = 0
+        while (current != null && depth < 6) {
+            if (depth > 0) sb.append(" ← ")
+            sb.append(current.javaClass.simpleName).append(": ").append(current.message ?: "(без сообщения)")
+            current = current.cause
+            depth++
+        }
+        return sb.toString()
+    }
+
     suspend fun sendCode(activity: Activity, phoneNumber: String): PhoneCodeResult =
         suspendCancellableCoroutine { cont ->
             val callbacks = object : PhoneAuthProvider.OnVerificationStateChangedCallbacks() {

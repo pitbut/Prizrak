@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.History
@@ -158,7 +159,9 @@ private fun PhoneAuthGate(viewModel: DriverViewModel, onDone: () -> Unit) {
 
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
         viewModel.authError?.let {
-            Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
+            SelectionContainer {
+                Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
+            }
         }
         when (viewModel.authStep) {
             DriverAuthStep.PHONE -> {

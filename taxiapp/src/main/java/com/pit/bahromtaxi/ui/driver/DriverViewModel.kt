@@ -141,11 +141,11 @@ class DriverViewModel : ViewModel() {
                         is PhoneCodeResult.AutoVerified -> {
                             runCatching { PhoneAuthClient.signIn(result.credential) }
                                 .onSuccess { token -> firebaseIdToken = token; authStep = DriverAuthStep.PROFILE }
-                                .onFailure { authError = "Не удалось подтвердить номер: ${it.message}" }
+                                .onFailure { authError = "Не удалось подтвердить номер: ${PhoneAuthClient.describeError(it)}" }
                         }
                     }
                 }
-                .onFailure { authError = "Не удалось отправить код: ${it.message}" }
+                .onFailure { authError = "Не удалось отправить код: ${PhoneAuthClient.describeError(it)}" }
             authLoading = false
         }
     }
@@ -157,7 +157,7 @@ class DriverViewModel : ViewModel() {
         viewModelScope.launch {
             runCatching { PhoneAuthClient.confirmCode(vId, codeInput.trim()) }
                 .onSuccess { token -> firebaseIdToken = token; authStep = DriverAuthStep.PROFILE }
-                .onFailure { authError = "Неверный код: ${it.message}" }
+                .onFailure { authError = "Неверный код: ${PhoneAuthClient.describeError(it)}" }
             authLoading = false
         }
     }
