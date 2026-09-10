@@ -1,6 +1,5 @@
 package com.pit.bahromtaxi.ui.client
 
-import android.app.Activity
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
@@ -8,7 +7,6 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.pit.bahromtaxi.auth.EmailAuthClient
 import com.pit.bahromtaxi.auth.PhoneAuthClient
-import com.pit.bahromtaxi.auth.PhoneCodeResult
 import com.pit.bahromtaxi.data.RideRepository
 import com.pit.bahromtaxi.domain.OrderType
 import com.pit.bahromtaxi.domain.PaymentMethod
@@ -34,7 +32,6 @@ class ClientViewModel : ViewModel() {
         private set
     var authError by mutableStateOf<String?>(null)
         private set
-    private var verificationId: String? = null
     private var firebaseIdToken: String? = null
 
     var showEmailForm by mutableStateOf(false)
@@ -156,35 +153,22 @@ class ClientViewModel : ViewModel() {
     val estimate: PriceBreakdown?
         get() = route?.let { PricingEngine.calculate(it.distanceKm, it.durationMin, demandFactor = 1.0) }
 
-    fun sendCode(activity: Activity) {
+    fun sendCode() {
         authError = null
         authLoading = true
         viewModelScope.launch {
-            runCatching { PhoneAuthClient.sendCode(activity, phoneInput.trim()) }
-                .onSuccess { result ->
-                    when (result) {
-                        is PhoneCodeResult.CodeSent -> {
-                            verificationId = result.verificationId
-                            authStep = AuthStep.CODE
-                        }
-                        is PhoneCodeResult.AutoVerified -> {
-                            runCatching { PhoneAuthClient.signIn(result.credential) }
-                                .onSuccess { token -> firebaseIdToken = token; authStep = AuthStep.PROFILE }
-                                .onFailure { authError = "Не удалось подтвердить номер: ${PhoneAuthClient.describeError(it)}" }
-                        }
-                    }
-                }
+            runCatching { PhoneAuthClient.sendCode(phoneInput.trim()) }
+                .onSuccess { authStep = AuthStep.CODE }
                 .onFailure { authError = "Не удалось отправить код: ${PhoneAuthClient.describeError(it)}" }
             authLoading = false
         }
     }
 
     fun confirmCode() {
-        val vId = verificationId ?: return
         authError = null
         authLoading = true
         viewModelScope.launch {
-            runCatching { PhoneAuthClient.confirmCode(vId, codeInput.trim()) }
+            runCatching { PhoneAuthClient.verifyCode(phoneInput.trim(), codeInput.trim()) }
                 .onSuccess { token -> firebaseIdToken = token; authStep = AuthStep.PROFILE }
                 .onFailure { authError = "Неверный код: ${PhoneAuthClient.describeError(it)}" }
             authLoading = false

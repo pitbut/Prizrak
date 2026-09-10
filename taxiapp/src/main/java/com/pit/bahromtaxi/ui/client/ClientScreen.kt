@@ -1,7 +1,6 @@
 package com.pit.bahromtaxi.ui.client
 
 import android.Manifest
-import android.app.Activity
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.net.Uri
@@ -183,8 +182,6 @@ fun ClientScreen(
 
 @Composable
 private fun PhoneAuthGate(viewModel: ClientViewModel, onDone: () -> Unit) {
-    val activity = LocalContext.current as Activity
-
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
         viewModel.authError?.let {
             SelectionContainer {
@@ -203,7 +200,7 @@ private fun PhoneAuthGate(viewModel: ClientViewModel, onDone: () -> Unit) {
                         singleLine = true
                     )
                     Button(
-                        onClick = { viewModel.sendCode(activity) },
+                        onClick = { viewModel.sendCode() },
                         enabled = !viewModel.authLoading,
                         modifier = Modifier.fillMaxWidth().height(52.dp)
                     ) {

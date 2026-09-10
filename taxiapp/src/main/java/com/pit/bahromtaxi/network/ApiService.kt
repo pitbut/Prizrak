@@ -12,6 +12,12 @@ interface ApiService {
     @POST("auth/register")
     suspend fun register(@Body body: RegisterRequest): AuthResponse
 
+    @POST("auth/phone/send-code")
+    suspend fun sendPhoneCode(@Body body: PhoneSendCodeRequest)
+
+    @POST("auth/phone/verify-code")
+    suspend fun verifyPhoneCode(@Body body: PhoneVerifyCodeRequest): PhoneVerifyResponse
+
     @GET("profile")
     suspend fun getProfile(): ProfileDto
 

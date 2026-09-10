@@ -63,3 +63,9 @@ data class WsEvent(val type: String, val ride: RideDto? = null)
 data class ProfileDto(val userId: String, val role: String, val name: String, val phone: String? = null, val email: String? = null)
 
 data class ProfileUpdateRequest(val name: String? = null, val phone: String? = null)
+
+data class PhoneSendCodeRequest(val phone: String)
+
+data class PhoneVerifyCodeRequest(val phone: String, val code: String)
+
+data class PhoneVerifyResponse(val firebaseCustomToken: String)
