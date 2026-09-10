@@ -2,6 +2,7 @@ package com.pit.bahromtaxi.ui.grouptrip
 
 import android.content.Intent
 import android.net.Uri
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -29,6 +30,9 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
@@ -37,6 +41,9 @@ import com.pit.bahromtaxi.domain.GroupTrip
 import com.pit.bahromtaxi.domain.GroupTripOffer
 import com.pit.bahromtaxi.domain.GroupTripOfferStatus
 import com.pit.bahromtaxi.domain.GroupTripStatus
+import com.pit.bahromtaxi.maps.PickTarget
+import com.pit.bahromtaxi.maps.TASHKENT
+import com.pit.bahromtaxi.ui.common.AddressSearchDialog
 
 /**
  * Групповая поездка — пассажир публикует заявку (направление, число людей, желаемое время),
@@ -48,6 +55,7 @@ import com.pit.bahromtaxi.domain.GroupTripStatus
 fun GroupTripPassengerScreen(viewModel: GroupTripPassengerViewModel, onBack: () -> Unit) {
     val myTrips by viewModel.myTrips.collectAsState()
     val error by viewModel.lastError.collectAsState()
+    var addressTarget by remember { mutableStateOf<PickTarget?>(null) }
 
     Scaffold(
         topBar = {
@@ -74,22 +82,8 @@ fun GroupTripPassengerScreen(viewModel: GroupTripPassengerViewModel, onBack: () 
             viewModel.createError?.let { Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall) }
 
             Text("Новая заявка", fontWeight = FontWeight.Bold)
-            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                OutlinedTextField(
-                    value = viewModel.fromCityInput,
-                    onValueChange = { viewModel.fromCityInput = it },
-                    label = { Text("Откуда") },
-                    modifier = Modifier.weight(1f),
-                    singleLine = true
-                )
-                OutlinedTextField(
-                    value = viewModel.toCityInput,
-                    onValueChange = { viewModel.toCityInput = it },
-                    label = { Text("Куда") },
-                    modifier = Modifier.weight(1f),
-                    singleLine = true
-                )
-            }
+            AddressPickRow(label = "Откуда", value = viewModel.fromCityInput, onClick = { addressTarget = PickTarget.FROM })
+            AddressPickRow(label = "Куда", value = viewModel.toCityInput, onClick = { addressTarget = PickTarget.TO })
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 OutlinedTextField(
                     value = viewModel.peopleCountInput,
@@ -129,6 +123,28 @@ fun GroupTripPassengerScreen(viewModel: GroupTripPassengerViewModel, onBack: () 
                     )
                 }
             }
+        }
+    }
+
+    addressTarget?.let { target ->
+        AddressSearchDialog(
+            title = if (target == PickTarget.FROM) "Откуда" else "Куда",
+            near = TASHKENT,
+            onDismiss = { addressTarget = null },
+            onSelect = { place ->
+                if (target == PickTarget.FROM) viewModel.fromCityInput = place.address else viewModel.toCityInput = place.address
+                addressTarget = null
+            }
+        )
+    }
+}
+
+@Composable
+private fun AddressPickRow(label: String, value: String, onClick: () -> Unit) {
+    Card(modifier = Modifier.fillMaxWidth().clickable(onClick = onClick)) {
+        Column(modifier = Modifier.fillMaxWidth().padding(14.dp)) {
+            Text(label, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
+            Text(value.ifBlank { "Найти адрес" }, style = MaterialTheme.typography.bodyLarge)
         }
     }
 }

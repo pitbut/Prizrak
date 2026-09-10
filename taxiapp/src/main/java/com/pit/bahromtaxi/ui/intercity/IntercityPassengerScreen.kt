@@ -145,24 +145,22 @@ fun IntercityPassengerScreen(viewModel: IntercityPassengerViewModel, onBack: () 
                         singleLine = true,
                         modifier = Modifier.fillMaxWidth()
                     )
-                    if (needsPickupAddress) {
-                        AddressPickRow(
-                            label = "Откуда забрать",
-                            value = viewModel.pickupAddressInput,
-                            onClick = { addressTarget = PickTarget.FROM }
-                        )
-                    } else {
-                        Text("Место посадки: ${bookingTrip.pickupPoint ?: bookingTrip.fromCity}", style = MaterialTheme.typography.bodySmall)
+                    if (!needsPickupAddress) {
+                        Text("Общая точка посадки: ${bookingTrip.pickupPoint ?: bookingTrip.fromCity}", style = MaterialTheme.typography.bodySmall)
                     }
-                    if (needsDropoffAddress) {
-                        AddressPickRow(
-                            label = "Куда довезти",
-                            value = viewModel.dropoffAddressInput,
-                            onClick = { addressTarget = PickTarget.TO }
-                        )
-                    } else {
-                        Text("Место высадки: ${bookingTrip.dropoffPoint ?: bookingTrip.toCity}", style = MaterialTheme.typography.bodySmall)
+                    AddressPickRow(
+                        label = if (needsPickupAddress) "Откуда забрать (обязательно)" else "Уточнить, где вас ждать (необязательно)",
+                        value = viewModel.pickupAddressInput,
+                        onClick = { addressTarget = PickTarget.FROM }
+                    )
+                    if (!needsDropoffAddress) {
+                        Text("Общая точка высадки: ${bookingTrip.dropoffPoint ?: bookingTrip.toCity}", style = MaterialTheme.typography.bodySmall)
                     }
+                    AddressPickRow(
+                        label = if (needsDropoffAddress) "Куда довезти (обязательно)" else "Уточнить место высадки (необязательно)",
+                        value = viewModel.dropoffAddressInput,
+                        onClick = { addressTarget = PickTarget.TO }
+                    )
                     Text(
                         bookingTrip.scheduledAt?.let { "Отправление: $it" } ?: "Отправление — как только наберётся машина",
                         style = MaterialTheme.typography.bodySmall
