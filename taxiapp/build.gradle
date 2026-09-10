@@ -18,8 +18,8 @@ android {
         applicationId "com.pit.bahromtaxi"
         minSdk 24
         targetSdk 34
-        versionCode 14
-        versionName "0.13.0"
+        versionCode 15
+        versionName "0.14.0"
 
         vectorDrawables {
             useSupportLibrary true
@@ -116,6 +116,9 @@ dependencies {
     implementation 'com.squareup.okhttp3:logging-interceptor:4.12.0'
 
     implementation 'org.osmdroid:osmdroid-android:6.1.20'
+
+    // Загрузка фото по URL в чате водитель/пассажир
+    implementation 'io.coil-kt:coil-compose:2.6.0'
 
     implementation platform('com.google.firebase:firebase-bom:33.4.0')
     implementation 'com.google.firebase:firebase-auth'

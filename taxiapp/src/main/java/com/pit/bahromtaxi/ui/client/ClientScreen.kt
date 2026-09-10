@@ -96,7 +96,8 @@ fun ClientScreen(
     viewModel: ClientViewModel,
     onBack: () -> Unit,
     onOpenProfile: () -> Unit,
-    onOpenHistory: () -> Unit
+    onOpenHistory: () -> Unit,
+    onOpenChat: (String) -> Unit
 ) {
     val context = LocalContext.current
 
@@ -163,7 +164,7 @@ fun ClientScreen(
                     onSearchTo = { searchTarget = PickTarget.TO },
                     onRequestLocation = { locationPermissionLauncher.launch(Manifest.permission.ACCESS_FINE_LOCATION) }
                 )
-                else -> ActiveRideCard(activeRide, onNewOrder = { viewModel.resetOrder() })
+                else -> ActiveRideCard(activeRide, onNewOrder = { viewModel.resetOrder() }, onOpenChat = { onOpenChat(activeRide.id) })
             }
         }
     }
@@ -420,6 +421,22 @@ private fun OrderForm(
                 singleLine = true
             )
         }
+        if (viewModel.orderType == OrderType.CARGO) {
+            OutlinedTextField(
+                value = viewModel.cargoDescriptionInput,
+                onValueChange = { viewModel.cargoDescriptionInput = it },
+                label = { Text("Что нужно перевезти") },
+                placeholder = { Text("Например: диван, 2 коробки") },
+                modifier = Modifier.fillMaxWidth()
+            )
+            OutlinedTextField(
+                value = viewModel.cargoWeightInput,
+                onValueChange = { viewModel.cargoWeightInput = it },
+                label = { Text("Вес, кг (необязательно)") },
+                modifier = Modifier.fillMaxWidth(),
+                singleLine = true
+            )
+        }
         viewModel.orderError?.let {
             Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
         }
@@ -640,7 +657,7 @@ private fun PriceRow(label: String, value: Double, bold: Boolean = false) {
 }
 
 @Composable
-private fun ActiveRideCard(ride: Ride, onNewOrder: () -> Unit) {
+private fun ActiveRideCard(ride: Ride, onNewOrder: () -> Unit, onOpenChat: () -> Unit) {
     val context = LocalContext.current
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
         Card(modifier = Modifier.fillMaxWidth()) {
@@ -656,13 +673,16 @@ private fun ActiveRideCard(ride: Ride, onNewOrder: () -> Unit) {
                         style = MaterialTheme.typography.bodySmall
                     )
                 }
-                if ((ride.status == RideStatus.ACCEPTED || ride.status == RideStatus.IN_PROGRESS) &&
-                    ride.driverPhone != null
-                ) {
-                    TextButton(onClick = {
-                        context.startActivity(Intent(Intent.ACTION_DIAL, Uri.parse("tel:${ride.driverPhone}")))
-                    }) {
-                        Text("Позвонить водителю: ${ride.driverPhone}")
+                if (ride.status == RideStatus.ACCEPTED || ride.status == RideStatus.IN_PROGRESS) {
+                    if (ride.driverPhone != null) {
+                        TextButton(onClick = {
+                            context.startActivity(Intent(Intent.ACTION_DIAL, Uri.parse("tel:${ride.driverPhone}")))
+                        }) {
+                            Text("Позвонить водителю: ${ride.driverPhone}")
+                        }
+                    }
+                    TextButton(onClick = onOpenChat) {
+                        Text("Чат с водителем")
                     }
                 }
             }

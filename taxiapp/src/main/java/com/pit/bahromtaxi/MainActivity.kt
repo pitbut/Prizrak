@@ -5,11 +5,15 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
+import androidx.navigation.navArgument
 import com.pit.bahromtaxi.ui.BahromTaxiTheme
 import com.pit.bahromtaxi.ui.RoleSelectScreen
+import com.pit.bahromtaxi.ui.chat.ChatScreen
+import com.pit.bahromtaxi.ui.chat.ChatViewModel
 import com.pit.bahromtaxi.ui.client.ClientScreen
 import com.pit.bahromtaxi.ui.client.ClientViewModel
 import com.pit.bahromtaxi.ui.driver.DriverScreen
@@ -39,7 +43,8 @@ class MainActivity : ComponentActivity() {
                             viewModel = vm,
                             onBack = { navController.popBackStack() },
                             onOpenProfile = { navController.navigate("profile") },
-                            onOpenHistory = { navController.navigate("history") }
+                            onOpenHistory = { navController.navigate("history") },
+                            onOpenChat = { rideId -> navController.navigate("chat/$rideId") }
                         )
                     }
                     composable("driver") {
@@ -48,7 +53,8 @@ class MainActivity : ComponentActivity() {
                             viewModel = vm,
                             onBack = { navController.popBackStack() },
                             onOpenProfile = { navController.navigate("profile") },
-                            onOpenHistory = { navController.navigate("history") }
+                            onOpenHistory = { navController.navigate("history") },
+                            onOpenChat = { rideId -> navController.navigate("chat/$rideId") }
                         )
                     }
                     composable("profile") {
@@ -58,6 +64,14 @@ class MainActivity : ComponentActivity() {
                     composable("history") {
                         val vm: RideHistoryViewModel = viewModel()
                         RideHistoryScreen(viewModel = vm, onBack = { navController.popBackStack() })
+                    }
+                    composable(
+                        "chat/{rideId}",
+                        arguments = listOf(navArgument("rideId") { type = NavType.StringType })
+                    ) { backStackEntry ->
+                        val rideId = backStackEntry.arguments?.getString("rideId") ?: return@composable
+                        val vm: ChatViewModel = viewModel()
+                        ChatScreen(viewModel = vm, rideId = rideId, onBack = { navController.popBackStack() })
                     }
                 }
             }

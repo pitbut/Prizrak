@@ -142,6 +142,8 @@ class ClientViewModel : ViewModel() {
     var orderType by mutableStateOf(OrderType.RIDE)
     var senderPhoneInput by mutableStateOf("")
     var receiverPhoneInput by mutableStateOf("")
+    var cargoDescriptionInput by mutableStateOf("")
+    var cargoWeightInput by mutableStateOf("")
     var orderError by mutableStateOf<String?>(null)
         private set
 
@@ -238,6 +240,10 @@ class ClientViewModel : ViewModel() {
                 return
             }
         }
+        if (orderType == OrderType.CARGO && cargoDescriptionInput.isBlank()) {
+            orderError = "Опишите, что нужно перевезти"
+            return
+        }
         orderError = null
         RideRepository.createOrder(
             fromAddress = from.address,
@@ -247,7 +253,9 @@ class ClientViewModel : ViewModel() {
             paymentMethod = paymentMethod,
             orderType = orderType,
             senderPhone = if (orderType == OrderType.DELIVERY) senderPhoneInput.trim() else null,
-            receiverPhone = if (orderType == OrderType.DELIVERY) receiverPhoneInput.trim() else null
+            receiverPhone = if (orderType == OrderType.DELIVERY) receiverPhoneInput.trim() else null,
+            cargoDescription = if (orderType == OrderType.CARGO) cargoDescriptionInput.trim() else null,
+            cargoWeightKg = if (orderType == OrderType.CARGO) cargoWeightInput.trim().toDoubleOrNull() else null
         ) { ride ->
             activeRideId = ride?.id
         }
@@ -262,5 +270,7 @@ class ClientViewModel : ViewModel() {
         pickTarget = null
         senderPhoneInput = ""
         receiverPhoneInput = ""
+        cargoDescriptionInput = ""
+        cargoWeightInput = ""
     }
 }

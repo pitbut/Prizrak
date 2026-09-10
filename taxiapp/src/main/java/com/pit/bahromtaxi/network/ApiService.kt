@@ -1,9 +1,13 @@
 package com.pit.bahromtaxi.network
 
+import okhttp3.MultipartBody
+import okhttp3.RequestBody
 import retrofit2.http.Body
 import retrofit2.http.GET
+import retrofit2.http.Multipart
 import retrofit2.http.PATCH
 import retrofit2.http.POST
+import retrofit2.http.Part
 import retrofit2.http.Path
 import retrofit2.http.Query
 
@@ -50,4 +54,15 @@ interface ApiService {
 
     @POST("drivers/{id}/commission/pay")
     suspend fun payCommission(@Path("id") id: String): CommissionDto
+
+    @GET("rides/{id}/messages")
+    suspend fun getMessages(@Path("id") rideId: String): List<ChatMessageDto>
+
+    @Multipart
+    @POST("rides/{id}/messages")
+    suspend fun sendMessage(
+        @Path("id") rideId: String,
+        @Part("text") text: RequestBody?,
+        @Part image: MultipartBody.Part?
+    ): ChatMessageDto
 }

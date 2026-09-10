@@ -20,5 +20,8 @@ data class Ride(
     val passengerPhone: String? = null,
     val orderType: OrderType = OrderType.RIDE,
     val senderPhone: String? = null,
-    val receiverPhone: String? = null
+    val receiverPhone: String? = null,
+    val cargoDescription: String? = null,
+    val cargoWeightKg: Double? = null,
+    val scheduledAt: String? = null
 )

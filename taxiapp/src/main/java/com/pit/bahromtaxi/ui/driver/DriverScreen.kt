@@ -57,7 +57,8 @@ fun DriverScreen(
     viewModel: DriverViewModel,
     onBack: () -> Unit,
     onOpenProfile: () -> Unit,
-    onOpenHistory: () -> Unit
+    onOpenHistory: () -> Unit,
+    onOpenChat: (String) -> Unit
 ) {
     var registered by remember { mutableStateOf(viewModel.isRegistered) }
     val online by viewModel.online.collectAsState()
@@ -130,7 +131,7 @@ fun DriverScreen(
             when {
                 myRide != null -> {
                     Text("Текущая поездка", fontWeight = FontWeight.Bold)
-                    DriverRideCard(myRide, viewModel)
+                    DriverRideCard(myRide, viewModel, onOpenChat = { onOpenChat(myRide.id) })
                 }
                 online -> {
                     Text("Свободные заказы", fontWeight = FontWeight.Bold)
@@ -331,8 +332,10 @@ private fun CommissionCard(owed: Double, paid: Double, onPay: () -> Unit) {
 private fun PendingRideCard(ride: Ride, onAccept: () -> Unit) {
     Card(modifier = Modifier.fillMaxWidth()) {
         Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-            if (ride.orderType == OrderType.DELIVERY) {
-                Text("Доставка", color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
+            when (ride.orderType) {
+                OrderType.DELIVERY -> Text("Доставка", color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
+                OrderType.CARGO -> Text("Груз", color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
+                OrderType.RIDE -> {}
             }
             Text("${ride.fromAddress} → ${ride.toAddress}", fontWeight = FontWeight.Bold)
             Text("${fmt1(ride.distanceKm)} км · ${ride.durationMin.toInt()} мин · ${ride.paymentMethod.label}")
@@ -355,12 +358,14 @@ private fun PendingRideCard(ride: Ride, onAccept: () -> Unit) {
 }
 
 @Composable
-private fun DriverRideCard(ride: Ride, viewModel: DriverViewModel) {
+private fun DriverRideCard(ride: Ride, viewModel: DriverViewModel, onOpenChat: () -> Unit) {
     val context = LocalContext.current
     Card(modifier = Modifier.fillMaxWidth()) {
         Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            if (ride.orderType == OrderType.DELIVERY) {
-                Text("Доставка", color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
+            when (ride.orderType) {
+                OrderType.DELIVERY -> Text("Доставка", color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
+                OrderType.CARGO -> Text("Груз", color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
+                OrderType.RIDE -> {}
             }
             Text("${ride.fromAddress} → ${ride.toAddress}", fontWeight = FontWeight.Bold)
             Text("Заказ: ${ride.price.total.toInt()} ₽ · Вам: ${ride.price.driverPayout.toInt()} ₽ · ${ride.paymentMethod.label}")
@@ -375,9 +380,16 @@ private fun DriverRideCard(ride: Ride, viewModel: DriverViewModel) {
                     Text("Позвонить пассажиру${ride.passengerName?.let { " ($it)" } ?: ""}: $phone")
                 }
             }
+            TextButton(onClick = onOpenChat) {
+                Text("Чат с пассажиром")
+            }
             if (ride.orderType == OrderType.DELIVERY) {
                 ride.senderPhone?.let { Text("Телефон отправителя: $it", style = MaterialTheme.typography.bodySmall) }
                 ride.receiverPhone?.let { Text("Телефон получателя: $it", style = MaterialTheme.typography.bodySmall) }
+            }
+            if (ride.orderType == OrderType.CARGO) {
+                ride.cargoDescription?.let { Text("Груз: $it", style = MaterialTheme.typography.bodySmall) }
+                ride.cargoWeightKg?.let { Text("Вес: ${it} кг", style = MaterialTheme.typography.bodySmall) }
             }
             when (ride.status) {
                 RideStatus.ACCEPTED -> Button(

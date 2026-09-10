@@ -28,7 +28,10 @@ data class RideDto(
     val passengerPhone: String? = null,
     val type: String? = null,
     val senderPhone: String? = null,
-    val receiverPhone: String? = null
+    val receiverPhone: String? = null,
+    val cargoDescription: String? = null,
+    val cargoWeightKg: Double? = null,
+    val scheduledAt: String? = null
 )
 
 data class RegisterRequest(
@@ -38,7 +41,9 @@ data class RegisterRequest(
     val carMake: String? = null,
     val carColor: String? = null,
     val carPlate: String? = null,
-    val clickHandle: String? = null
+    val clickHandle: String? = null,
+    val vehicleType: String? = null,
+    val capacityKg: Double? = null
 )
 
 data class AuthResponse(val token: String, val userId: String, val role: String, val name: String)
@@ -51,14 +56,27 @@ data class CreateRideRequest(
     val paymentMethod: String,
     val type: String = "ride",
     val senderPhone: String? = null,
-    val receiverPhone: String? = null
+    val receiverPhone: String? = null,
+    val cargoDescription: String? = null,
+    val cargoWeightKg: Double? = null,
+    val scheduledAt: String? = null
 )
 
 data class OnlineRequest(val online: Boolean)
 
 data class CommissionDto(val owed: Double, val paid: Double)
 
-data class WsEvent(val type: String, val ride: RideDto? = null)
+data class WsEvent(val type: String, val ride: RideDto? = null, val message: ChatMessageDto? = null)
+
+data class ChatMessageDto(
+    val id: String,
+    val rideId: String,
+    val senderId: String,
+    val senderRole: String,
+    val text: String? = null,
+    val imageUrl: String? = null,
+    val createdAt: String? = null
+)
 
 data class ProfileDto(val userId: String, val role: String, val name: String, val phone: String? = null, val email: String? = null)
 

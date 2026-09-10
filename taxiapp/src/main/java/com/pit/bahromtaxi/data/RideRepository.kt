@@ -7,6 +7,7 @@ import com.pit.bahromtaxi.domain.Ride
 import com.pit.bahromtaxi.domain.RideStatus
 import com.pit.bahromtaxi.network.ApiClient
 import com.pit.bahromtaxi.network.AuthStore
+import com.pit.bahromtaxi.network.ChatMessageDto
 import com.pit.bahromtaxi.network.CreateRideRequest
 import com.pit.bahromtaxi.network.OnlineRequest
 import com.pit.bahromtaxi.network.ProfileDto
@@ -18,10 +19,15 @@ import com.pit.bahromtaxi.network.WsEvent
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import okhttp3.MediaType.Companion.toMediaType
+import okhttp3.MultipartBody
+import okhttp3.RequestBody.Companion.toRequestBody
 
 /**
  * Клиент к backend на VPS (см. taxiapp/README.md, раздел «Backend»). Матчинг заказов,
@@ -48,6 +54,9 @@ object RideRepository {
     private val _lastError = MutableStateFlow<String?>(null)
     val lastError: StateFlow<String?> = _lastError
 
+    private val _chatMessages = MutableSharedFlow<ChatMessageDto>(extraBufferCapacity = 16)
+    val chatMessages: SharedFlow<ChatMessageDto> = _chatMessages
+
     private var socket: RideSocket? = null
     private var connectedRole: String? = null
 
@@ -71,10 +80,12 @@ object RideRepository {
         carMake: String? = null,
         carColor: String? = null,
         carPlate: String? = null,
-        clickHandle: String? = null
+        clickHandle: String? = null,
+        vehicleType: String? = null,
+        capacityKg: Double? = null
     ): Boolean = runCatching {
         val response = api.register(
-            RegisterRequest(firebaseIdToken, role, name, carMake, carColor, carPlate, clickHandle)
+            RegisterRequest(firebaseIdToken, role, name, carMake, carColor, carPlate, clickHandle, vehicleType, capacityKg)
         )
         AuthStore.saveSession(response.role, response.token, response.userId, response.name)
         ensureConnected()
@@ -101,6 +112,9 @@ object RideRepository {
         orderType: OrderType = OrderType.RIDE,
         senderPhone: String? = null,
         receiverPhone: String? = null,
+        cargoDescription: String? = null,
+        cargoWeightKg: Double? = null,
+        scheduledAt: String? = null,
         onResult: (Ride?) -> Unit
     ) {
         scope.launch {
@@ -110,7 +124,10 @@ object RideRepository {
                         fromAddress, toAddress, distanceKm, durationMin, paymentMethod.name,
                         type = orderType.name.lowercase(),
                         senderPhone = senderPhone,
-                        receiverPhone = receiverPhone
+                        receiverPhone = receiverPhone,
+                        cargoDescription = cargoDescription,
+                        cargoWeightKg = cargoWeightKg,
+                        scheduledAt = scheduledAt
                     )
                 )
             }
@@ -121,6 +138,25 @@ object RideRepository {
             onResult(ride)
         }
     }
+
+    suspend fun getMessages(rideId: String): List<ChatMessageDto> = runCatching { api.getMessages(rideId) }
+        .onFailure { _lastError.value = "Не удалось загрузить чат: ${it.message}" }
+        .getOrElse { emptyList() }
+
+    suspend fun sendChatText(rideId: String, text: String): ChatMessageDto? = runCatching {
+        api.sendMessage(rideId, text.toRequestBody("text/plain".toMediaType()), null)
+    }
+        .onFailure { _lastError.value = "Не удалось отправить сообщение: ${it.message}" }
+        .getOrNull()
+
+    suspend fun sendChatImage(rideId: String, bytes: ByteArray): ChatMessageDto? = runCatching {
+        val part = MultipartBody.Part.createFormData(
+            "image", "photo.jpg", bytes.toRequestBody("image/jpeg".toMediaType())
+        )
+        api.sendMessage(rideId, null, part)
+    }
+        .onFailure { _lastError.value = "Не удалось отправить фото: ${it.message}" }
+        .getOrNull()
 
     suspend fun getProfile(): ProfileDto? = runCatching { api.getProfile() }
         .onFailure { _lastError.value = "Не удалось загрузить профиль: ${it.message}" }
@@ -189,6 +225,10 @@ object RideRepository {
     }
 
     private fun handleEvent(event: WsEvent) {
+        if (event.type == "chat_message") {
+            event.message?.let { _chatMessages.tryEmit(it) }
+            return
+        }
         val ride = event.ride?.toDomain() ?: return
         mergeRides(listOf(ride))
         if (ride.status == RideStatus.COMPLETED && ride.driverId == AuthStore.userId) {
@@ -234,6 +274,9 @@ object RideRepository {
         passengerPhone = passengerPhone,
         orderType = runCatching { OrderType.valueOf((type ?: "ride").uppercase()) }.getOrDefault(OrderType.RIDE),
         senderPhone = senderPhone,
-        receiverPhone = receiverPhone
+        receiverPhone = receiverPhone,
+        cargoDescription = cargoDescription,
+        cargoWeightKg = cargoWeightKg,
+        scheduledAt = scheduledAt
     )
 }
