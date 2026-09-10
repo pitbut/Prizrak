@@ -20,6 +20,18 @@ class DriverViewModel : ViewModel() {
 
     init {
         AuthStore.activate("driver")
+        trySilentLogin()
+    }
+
+    /** Если телефон уже подтверждён на этом устройстве для другой роли — сразу к профилю, без SMS. */
+    private fun trySilentLogin() {
+        if (isRegistered) return
+        viewModelScope.launch {
+            PhoneAuthClient.currentIdToken()?.let { token ->
+                firebaseIdToken = token
+                authStep = DriverAuthStep.PROFILE
+            }
+        }
     }
 
     var authStep by mutableStateOf(DriverAuthStep.PHONE)

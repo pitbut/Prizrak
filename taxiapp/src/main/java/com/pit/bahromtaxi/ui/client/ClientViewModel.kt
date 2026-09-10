@@ -27,6 +27,18 @@ class ClientViewModel : ViewModel() {
 
     init {
         AuthStore.activate("passenger")
+        trySilentLogin()
+    }
+
+    /** Если телефон уже подтверждён на этом устройстве для другой роли — сразу к профилю, без SMS. */
+    private fun trySilentLogin() {
+        if (isRegistered) return
+        viewModelScope.launch {
+            PhoneAuthClient.currentIdToken()?.let { token ->
+                firebaseIdToken = token
+                authStep = AuthStep.PROFILE
+            }
+        }
     }
 
     var authStep by mutableStateOf(AuthStep.PHONE)

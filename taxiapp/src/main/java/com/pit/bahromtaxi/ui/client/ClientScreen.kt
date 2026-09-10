@@ -67,6 +67,7 @@ import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import androidx.core.content.ContextCompat
 import com.pit.bahromtaxi.data.RideRepository
+import com.pit.bahromtaxi.ui.common.AddressSearchDialog
 import com.pit.bahromtaxi.domain.OrderType
 import com.pit.bahromtaxi.domain.PaymentMethod
 import com.pit.bahromtaxi.domain.PriceBreakdown
@@ -74,6 +75,7 @@ import com.pit.bahromtaxi.domain.Ride
 import com.pit.bahromtaxi.domain.RideStatus
 import com.pit.bahromtaxi.domain.label
 import com.pit.bahromtaxi.maps.Coordinate
+import com.pit.bahromtaxi.maps.TASHKENT
 import com.pit.bahromtaxi.maps.NominatimClient
 import com.pit.bahromtaxi.maps.OsrmClient
 import com.pit.bahromtaxi.maps.PickTarget
@@ -90,8 +92,6 @@ import org.osmdroid.views.overlay.Polyline
 import org.osmdroid.views.overlay.mylocation.GpsMyLocationProvider
 import org.osmdroid.views.overlay.mylocation.MyLocationNewOverlay
 import java.util.Locale
-
-private val TASHKENT = Coordinate(41.2995, 69.2401)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -369,62 +369,6 @@ private fun PhoneAuthGate(viewModel: ClientViewModel, onDone: () -> Unit) {
     }
 }
 
-@Composable
-private fun AddressSearchDialog(title: String, near: Coordinate, onDismiss: () -> Unit, onSelect: (PlacePoint) -> Unit) {
-    var query by remember { mutableStateOf("") }
-    var results by remember { mutableStateOf<List<PlacePoint>>(emptyList()) }
-    var loading by remember { mutableStateOf(false) }
-
-    LaunchedEffect(query) {
-        val trimmed = query.trim()
-        if (trimmed.length < 3) {
-            results = emptyList()
-            return@LaunchedEffect
-        }
-        delay(600) // не долбить Nominatim на каждое нажатие клавиши — лимит ~1 запрос/сек
-        loading = true
-        NominatimClient.search(trimmed, near = near)
-            .onSuccess { results = it }
-            .onFailure { results = emptyList() }
-        loading = false
-    }
-
-    Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false)) {
-        Surface(modifier = Modifier.fillMaxSize()) {
-            Column(modifier = Modifier.fillMaxSize().padding(16.dp)) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    IconButton(onClick = onDismiss) {
-                        Icon(Icons.Filled.ArrowBack, contentDescription = "Закрыть")
-                    }
-                    Spacer(Modifier.width(8.dp))
-                    Text(title, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
-                }
-                Spacer(Modifier.height(8.dp))
-                OutlinedTextField(
-                    value = query,
-                    onValueChange = { query = it },
-                    label = { Text("Введите адрес") },
-                    modifier = Modifier.fillMaxWidth(),
-                    singleLine = true
-                )
-                Spacer(Modifier.height(8.dp))
-                if (loading) LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
-                LazyColumn(modifier = Modifier.weight(1f)) {
-                    items(results) { place ->
-                        Column(
-                            modifier = Modifier.fillMaxWidth()
-                                .clickable { onSelect(place) }
-                                .padding(vertical = 14.dp)
-                        ) {
-                            Text(place.address, style = MaterialTheme.typography.bodyLarge)
-                        }
-                        HorizontalDivider()
-                    }
-                }
-            }
-        }
-    }
-}
 
 @Composable
 private fun OrderForm(

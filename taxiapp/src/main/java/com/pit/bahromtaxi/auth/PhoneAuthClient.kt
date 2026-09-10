@@ -28,6 +28,21 @@ object PhoneAuthClient {
         return signInWithCustomToken(response.firebaseCustomToken)
     }
 
+    /**
+     * Если на этом устройстве уже есть подтверждённая Firebase-сессия (пользователь уже
+     * проходил вход по SMS/email для другой роли) — отдаёт свежий токен без повторной отправки
+     * SMS, чтобы зарегистрировать ещё одну роль (водитель/перевозчик) на том же номере, спросив
+     * только профиль, а не телефон и код заново. Null, если сессии ещё нет.
+     */
+    suspend fun currentIdToken(): String? {
+        val user = FirebaseAuth.getInstance().currentUser ?: return null
+        return suspendCancellableCoroutine { cont ->
+            user.getIdToken(false)
+                .addOnSuccessListener { result -> if (cont.isActive) cont.resume(result.token) }
+                .addOnFailureListener { if (cont.isActive) cont.resume(null) }
+        }
+    }
+
     private suspend fun signInWithCustomToken(customToken: String): String =
         suspendCancellableCoroutine { cont ->
             FirebaseAuth.getInstance().signInWithCustomToken(customToken)

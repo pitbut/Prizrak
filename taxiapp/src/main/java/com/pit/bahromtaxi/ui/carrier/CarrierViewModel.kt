@@ -24,6 +24,18 @@ class CarrierViewModel : ViewModel() {
 
     init {
         AuthStore.activate("carrier")
+        trySilentLogin()
+    }
+
+    /** Если телефон уже подтверждён на этом устройстве для другой роли — сразу к профилю, без SMS. */
+    private fun trySilentLogin() {
+        if (isRegistered) return
+        viewModelScope.launch {
+            PhoneAuthClient.currentIdToken()?.let { token ->
+                firebaseIdToken = token
+                authStep = CarrierAuthStep.PROFILE
+            }
+        }
     }
 
     var authStep by mutableStateOf(CarrierAuthStep.PHONE)
