@@ -49,9 +49,18 @@ object RideRepository {
     val lastError: StateFlow<String?> = _lastError
 
     private var socket: RideSocket? = null
+    private var connectedRole: String? = null
 
+    /** Переподключается, если активная роль сменилась (пассажир ⇄ водитель), иначе не трогает сокет. */
     fun ensureConnected() {
-        if (socket != null) return
+        val activeRole = AuthStore.role
+        if (socket != null && connectedRole == activeRole) return
+        socket?.close()
+        _rides.value = emptyList()
+        _driverOnline.value = false
+        _commissionOwed.value = 0.0
+        _commissionPaid.value = 0.0
+        connectedRole = activeRole
         socket = RideSocket { event -> handleEvent(event) }.also { it.connect() }
     }
 
@@ -67,10 +76,7 @@ object RideRepository {
         val response = api.register(
             RegisterRequest(firebaseIdToken, role, name, carMake, carColor, carPlate, clickHandle)
         )
-        AuthStore.token = response.token
-        AuthStore.userId = response.userId
-        AuthStore.role = response.role
-        AuthStore.name = response.name
+        AuthStore.saveSession(response.role, response.token, response.userId, response.name)
         ensureConnected()
         true
     }.getOrElse {

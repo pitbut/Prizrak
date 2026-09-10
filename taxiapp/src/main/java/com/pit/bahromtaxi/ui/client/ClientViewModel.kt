@@ -25,6 +25,10 @@ enum class EmailAuthMode { REGISTER, LOGIN }
 
 class ClientViewModel : ViewModel() {
 
+    init {
+        AuthStore.activate("passenger")
+    }
+
     var authStep by mutableStateOf(AuthStep.PHONE)
     var phoneInput by mutableStateOf("+998")
     var codeInput by mutableStateOf("")

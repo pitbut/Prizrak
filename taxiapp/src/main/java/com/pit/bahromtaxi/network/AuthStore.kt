@@ -4,9 +4,12 @@ import android.content.Context
 import android.content.SharedPreferences
 
 /**
- * Токен/роль/имя текущего пользователя на этом устройстве. Регистрация на backend
- * (см. ApiService.register) происходит один раз при первом входе в режим "Пассажир"
- * или "Водитель" — дальше токен переживает перезапуск приложения.
+ * Токен/роль/имя текущего пользователя на этом устройстве. Пассажир и водитель — разные
+ * роли, каждая сохраняется отдельно (ключи вида "token_passenger"/"token_driver"), поэтому
+ * вход в одну роль не сбивает уже сохранённый вход в другую. token/userId/role/name — это
+ * "активная" сессия, которую использует сетевой слой (Authorization-заголовок, WebSocket);
+ * activate(role) переключает её на сохранённую сессию нужной роли, вызывается при входе
+ * на экран пассажира/водителя.
  */
 object AuthStore {
     private const val PREFS = "bahromtaxi_auth"
@@ -16,21 +19,42 @@ object AuthStore {
         prefs = context.applicationContext.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
     }
 
-    var token: String?
-        get() = prefs.getString("token", null)
-        set(value) = prefs.edit().putString("token", value).apply()
+    var token: String? = null
+        private set
 
-    var userId: String?
-        get() = prefs.getString("user_id", null)
-        set(value) = prefs.edit().putString("user_id", value).apply()
+    var userId: String? = null
+        private set
 
-    var role: String?
-        get() = prefs.getString("role", null)
-        set(value) = prefs.edit().putString("role", value).apply()
+    var role: String? = null
+        private set
 
-    var name: String?
-        get() = prefs.getString("name", null)
-        set(value) = prefs.edit().putString("name", value).apply()
+    var name: String? = null
+        private set
 
-    fun isRegisteredAs(expectedRole: String): Boolean = token != null && role == expectedRole
+    fun isRegisteredAs(expectedRole: String): Boolean = prefs.getString("token_$expectedRole", null) != null
+
+    /** Сохраняет сессию под конкретной ролью и сразу делает её активной. */
+    fun saveSession(role: String, token: String, userId: String, name: String) {
+        prefs.edit()
+            .putString("token_$role", token)
+            .putString("user_id_$role", userId)
+            .putString("name_$role", name)
+            .apply()
+        activate(role)
+    }
+
+    /** Загружает ранее сохранённую сессию этой роли как активную — вызывать при входе на экран роли. */
+    fun activate(role: String) {
+        this.role = role
+        this.token = prefs.getString("token_$role", null)
+        this.userId = prefs.getString("user_id_$role", null)
+        this.name = prefs.getString("name_$role", null)
+    }
+
+    /** Обновляет имя в активной роли (и в памяти, и на диске) — например, после редактирования профиля. */
+    fun updateActiveName(newName: String) {
+        val activeRole = role ?: return
+        name = newName
+        prefs.edit().putString("name_$activeRole", newName).apply()
+    }
 }

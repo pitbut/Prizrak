@@ -18,6 +18,10 @@ enum class DriverEmailAuthMode { REGISTER, LOGIN }
 
 class DriverViewModel : ViewModel() {
 
+    init {
+        AuthStore.activate("driver")
+    }
+
     var authStep by mutableStateOf(DriverAuthStep.PHONE)
     var phoneInput by mutableStateOf("+998")
     var codeInput by mutableStateOf("")

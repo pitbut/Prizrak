@@ -64,7 +64,7 @@ class ProfileViewModel : ViewModel() {
                 phone.ifBlank { null }
             )
             if (profile != null) {
-                AuthStore.name = profile.name
+                AuthStore.updateActiveName(profile.name)
                 saved = true
             } else {
                 error = "Не удалось сохранить"
