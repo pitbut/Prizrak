@@ -25,6 +25,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.DirectionsBus
+import androidx.compose.material.icons.filled.Groups
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.MyLocation
 import androidx.compose.material.icons.filled.Person
@@ -102,6 +103,7 @@ fun ClientScreen(
     onOpenHistory: () -> Unit,
     onOpenChat: (String) -> Unit,
     onOpenIntercity: () -> Unit,
+    onOpenGroupTrip: () -> Unit,
     pendingLocation: Coordinate? = null,
     onPendingLocationConsumed: () -> Unit = {}
 ) {
@@ -166,6 +168,9 @@ fun ClientScreen(
                 },
                 actions = {
                     if (registered) {
+                        IconButton(onClick = onOpenGroupTrip) {
+                            Icon(Icons.Filled.Groups, contentDescription = "Групповая поездка")
+                        }
                         IconButton(onClick = onOpenIntercity) {
                             Icon(Icons.Filled.DirectionsBus, contentDescription = "Межгород")
                         }
@@ -200,7 +205,12 @@ fun ClientScreen(
                     onSearchTo = { searchTarget = PickTarget.TO },
                     onRequestLocation = { locationPermissionLauncher.launch(Manifest.permission.ACCESS_FINE_LOCATION) }
                 )
-                else -> ActiveRideCard(activeRide, onNewOrder = { viewModel.resetOrder() }, onOpenChat = { onOpenChat(activeRide.id) })
+                else -> ActiveRideCard(
+                    activeRide,
+                    onNewOrder = { viewModel.resetOrder() },
+                    onOpenChat = { onOpenChat(activeRide.id) },
+                    onCancel = { viewModel.cancelRide(activeRide.id) }
+                )
             }
         }
     }
@@ -670,8 +680,9 @@ private fun PriceRow(label: String, value: Double, bold: Boolean = false) {
 }
 
 @Composable
-private fun ActiveRideCard(ride: Ride, onNewOrder: () -> Unit, onOpenChat: () -> Unit) {
+private fun ActiveRideCard(ride: Ride, onNewOrder: () -> Unit, onOpenChat: () -> Unit, onCancel: () -> Unit) {
     val context = LocalContext.current
+    var showCancelDialog by remember { mutableStateOf(false) }
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
         Card(modifier = Modifier.fillMaxWidth()) {
             Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -708,8 +719,28 @@ private fun ActiveRideCard(ride: Ride, onNewOrder: () -> Unit, onOpenChat: () ->
             RideStatus.CANCELLED -> {
                 Button(onClick = onNewOrder, modifier = Modifier.fillMaxWidth()) { Text("Заказать снова") }
             }
-            else -> LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
+            else -> {
+                LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
+                TextButton(onClick = { showCancelDialog = true }, modifier = Modifier.fillMaxWidth()) {
+                    Text("Отменить поездку", color = MaterialTheme.colorScheme.error)
+                }
+            }
         }
+    }
+
+    if (showCancelDialog) {
+        AlertDialog(
+            onDismissRequest = { showCancelDialog = false },
+            title = { Text("Отменить поездку?") },
+            confirmButton = {
+                TextButton(onClick = { showCancelDialog = false; onCancel() }) {
+                    Text("Отменить", color = MaterialTheme.colorScheme.error)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showCancelDialog = false }) { Text("Не отменять") }
+            }
+        )
     }
 }
 

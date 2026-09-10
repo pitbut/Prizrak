@@ -6,6 +6,7 @@ import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModel
 import com.pit.bahromtaxi.data.IntercityRepository
 import com.pit.bahromtaxi.domain.IntercityTrip
+import com.pit.bahromtaxi.domain.TripPointMode
 import kotlinx.coroutines.flow.StateFlow
 
 class IntercityDriverViewModel : ViewModel() {
@@ -15,6 +16,10 @@ class IntercityDriverViewModel : ViewModel() {
     var totalSeatsInput by mutableStateOf("4")
     var pricePerSeatInput by mutableStateOf("")
     var scheduledAtInput by mutableStateOf("")
+    /** SINGLE — все садятся/выходят в одной точке (fromCityInput/toCityInput и есть эта точка).
+     *  COLLECT — водитель объезжает адреса, которые пассажиры укажут при бронировании. */
+    var pickupMode by mutableStateOf(TripPointMode.SINGLE)
+    var dropoffMode by mutableStateOf(TripPointMode.SINGLE)
     var creating by mutableStateOf(false)
         private set
     var createError by mutableStateOf<String?>(null)
@@ -52,7 +57,11 @@ class IntercityDriverViewModel : ViewModel() {
             toCity = to,
             totalSeats = seats,
             pricePerSeat = price,
-            scheduledAt = scheduledAtInput.trim().ifBlank { null }
+            scheduledAt = scheduledAtInput.trim().ifBlank { null },
+            pickupMode = pickupMode,
+            dropoffMode = dropoffMode,
+            pickupPoint = if (pickupMode == TripPointMode.SINGLE) from else null,
+            dropoffPoint = if (dropoffMode == TripPointMode.SINGLE) to else null
         ) {
             creating = false
             if (it != null) {
@@ -61,6 +70,8 @@ class IntercityDriverViewModel : ViewModel() {
                 totalSeatsInput = "4"
                 pricePerSeatInput = ""
                 scheduledAtInput = ""
+                pickupMode = TripPointMode.SINGLE
+                dropoffMode = TripPointMode.SINGLE
             } else {
                 createError = "Не удалось создать поездку"
             }

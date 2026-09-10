@@ -16,6 +16,7 @@ import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.DirectionsBus
+import androidx.compose.material.icons.filled.Groups
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material3.Button
@@ -60,7 +61,8 @@ fun DriverScreen(
     onOpenProfile: () -> Unit,
     onOpenHistory: () -> Unit,
     onOpenChat: (String) -> Unit,
-    onOpenIntercity: () -> Unit
+    onOpenIntercity: () -> Unit,
+    onOpenGroupTrip: () -> Unit
 ) {
     var registered by remember { mutableStateOf(viewModel.isRegistered) }
     val online by viewModel.online.collectAsState()
@@ -95,6 +97,9 @@ fun DriverScreen(
                 },
                 actions = {
                     if (registered) {
+                        IconButton(onClick = onOpenGroupTrip) {
+                            Icon(Icons.Filled.Groups, contentDescription = "Групповые заявки")
+                        }
                         IconButton(onClick = onOpenIntercity) {
                             Icon(Icons.Filled.DirectionsBus, contentDescription = "Межгород")
                         }
@@ -408,6 +413,11 @@ private fun DriverRideCard(ride: Ride, viewModel: DriverViewModel, onOpenChat: (
                     modifier = Modifier.fillMaxWidth()
                 ) { Text("Завершить поездку") }
                 else -> {}
+            }
+            if (ride.status == RideStatus.ACCEPTED || ride.status == RideStatus.IN_PROGRESS) {
+                TextButton(onClick = { viewModel.cancel(ride.id) }, modifier = Modifier.fillMaxWidth()) {
+                    Text("Отменить поездку", color = MaterialTheme.colorScheme.error)
+                }
             }
         }
     }

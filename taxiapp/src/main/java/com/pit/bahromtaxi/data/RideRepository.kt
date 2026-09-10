@@ -9,6 +9,7 @@ import com.pit.bahromtaxi.network.ApiClient
 import com.pit.bahromtaxi.network.AuthStore
 import com.pit.bahromtaxi.network.ChatMessageDto
 import com.pit.bahromtaxi.network.CreateRideRequest
+import com.pit.bahromtaxi.network.GroupTripDto
 import com.pit.bahromtaxi.network.IntercityTripDto
 import com.pit.bahromtaxi.network.OnlineRequest
 import com.pit.bahromtaxi.network.ProfileDto
@@ -61,6 +62,9 @@ object RideRepository {
 
     private val _intercityTripEvents = MutableSharedFlow<IntercityTripDto>(extraBufferCapacity = 16)
     val intercityTripEvents: SharedFlow<IntercityTripDto> = _intercityTripEvents
+
+    private val _groupTripEvents = MutableSharedFlow<GroupTripDto>(extraBufferCapacity = 16)
+    val groupTripEvents: SharedFlow<GroupTripDto> = _groupTripEvents
 
     private var socket: RideSocket? = null
     private var connectedRole: String? = null
@@ -212,6 +216,9 @@ object RideRepository {
     fun acceptRide(rideId: String) = act { api.acceptRide(rideId) }
     fun startRide(rideId: String) = act { api.startRide(rideId) }
 
+    /** Отмена доступна на любом этапе — и пассажиру, и водителю (см. запрос про "отмена на всех этапах"). */
+    fun cancelRide(rideId: String) = act { api.cancelRide(rideId) }
+
     fun completeRide(rideId: String) {
         act { api.completeRide(rideId) }
         refreshCommission()
@@ -256,6 +263,10 @@ object RideRepository {
         }
         if (event.type == "intercity_trip") {
             event.intercityTrip?.let { _intercityTripEvents.tryEmit(it) }
+            return
+        }
+        if (event.type == "group_trip") {
+            event.groupTrip?.let { _groupTripEvents.tryEmit(it) }
             return
         }
         val ride = event.ride?.toDomain() ?: return

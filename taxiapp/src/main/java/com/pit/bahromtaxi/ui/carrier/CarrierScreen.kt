@@ -381,6 +381,11 @@ private fun CarrierRideCard(ride: Ride, viewModel: CarrierViewModel, onOpenChat:
                 ) { Text("Завершить перевозку") }
                 else -> {}
             }
+            if (ride.status == RideStatus.ACCEPTED || ride.status == RideStatus.IN_PROGRESS) {
+                TextButton(onClick = { viewModel.cancel(ride.id) }, modifier = Modifier.fillMaxWidth()) {
+                    Text("Отменить перевозку", color = MaterialTheme.colorScheme.error)
+                }
+            }
         }
     }
 }

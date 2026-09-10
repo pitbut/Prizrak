@@ -1,10 +1,15 @@
 package com.pit.bahromtaxi
 
+import android.Manifest
 import android.content.Intent
+import android.content.pm.PackageManager
+import android.os.Build
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.core.content.ContextCompat
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -33,6 +38,10 @@ import com.pit.bahromtaxi.ui.intercity.IntercityDriverScreen
 import com.pit.bahromtaxi.ui.intercity.IntercityDriverViewModel
 import com.pit.bahromtaxi.ui.intercity.IntercityPassengerScreen
 import com.pit.bahromtaxi.ui.intercity.IntercityPassengerViewModel
+import com.pit.bahromtaxi.ui.grouptrip.GroupTripDriverScreen
+import com.pit.bahromtaxi.ui.grouptrip.GroupTripDriverViewModel
+import com.pit.bahromtaxi.ui.grouptrip.GroupTripPassengerScreen
+import com.pit.bahromtaxi.ui.grouptrip.GroupTripPassengerViewModel
 import com.pit.bahromtaxi.ui.profile.ProfileScreen
 import com.pit.bahromtaxi.ui.profile.ProfileViewModel
 
@@ -40,9 +49,18 @@ class MainActivity : ComponentActivity() {
 
     private var pendingLocation by mutableStateOf<Coordinate?>(null)
 
+    private val notificationPermissionLauncher = registerForActivityResult(ActivityResultContracts.RequestPermission()) {}
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+        // Без этого разрешения (Android 13+) напоминания-будильники перед отправлением поездки
+        // молча не покажутся — сами будильники (AlarmManager) при этом всё равно сработают.
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+            ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
+        ) {
+            notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+        }
         pendingLocation = intent?.data?.let(GeoUri::parse)
         setContent {
             BahromTaxiTheme {
@@ -71,6 +89,7 @@ class MainActivity : ComponentActivity() {
                             onOpenHistory = { navController.navigate("history") },
                             onOpenChat = { rideId -> navController.navigate("chat/$rideId") },
                             onOpenIntercity = { navController.navigate("intercity_passenger") },
+                            onOpenGroupTrip = { navController.navigate("group_trip_passenger") },
                             pendingLocation = pendingLocation,
                             onPendingLocationConsumed = { pendingLocation = null }
                         )
@@ -83,7 +102,8 @@ class MainActivity : ComponentActivity() {
                             onOpenProfile = { navController.navigate("profile") },
                             onOpenHistory = { navController.navigate("history") },
                             onOpenChat = { rideId -> navController.navigate("chat/$rideId") },
-                            onOpenIntercity = { navController.navigate("intercity_driver") }
+                            onOpenIntercity = { navController.navigate("intercity_driver") },
+                            onOpenGroupTrip = { navController.navigate("group_trip_driver") }
                         )
                     }
                     composable("intercity_passenger") {
@@ -93,6 +113,14 @@ class MainActivity : ComponentActivity() {
                     composable("intercity_driver") {
                         val vm: IntercityDriverViewModel = viewModel()
                         IntercityDriverScreen(viewModel = vm, onBack = { navController.popBackStack() })
+                    }
+                    composable("group_trip_passenger") {
+                        val vm: GroupTripPassengerViewModel = viewModel()
+                        GroupTripPassengerScreen(viewModel = vm, onBack = { navController.popBackStack() })
+                    }
+                    composable("group_trip_driver") {
+                        val vm: GroupTripDriverViewModel = viewModel()
+                        GroupTripDriverScreen(viewModel = vm, onBack = { navController.popBackStack() })
                     }
                     composable("carrier") {
                         val vm: CarrierViewModel = viewModel()

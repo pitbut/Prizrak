@@ -283,6 +283,8 @@ class ClientViewModel : ViewModel() {
         }
     }
 
+    fun cancelRide(rideId: String) = RideRepository.cancelRide(rideId)
+
     fun resetOrder() {
         activeRideId = null
         fromPlace = null

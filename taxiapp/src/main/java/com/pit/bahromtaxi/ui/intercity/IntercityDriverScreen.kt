@@ -18,6 +18,7 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DatePicker
 import androidx.compose.material3.DatePickerDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -44,6 +45,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import com.pit.bahromtaxi.domain.IntercityStatus
 import com.pit.bahromtaxi.domain.IntercityTrip
+import com.pit.bahromtaxi.domain.TripPointMode
 import com.pit.bahromtaxi.maps.PickTarget
 import com.pit.bahromtaxi.maps.TASHKENT
 import com.pit.bahromtaxi.ui.common.AddressSearchDialog
@@ -85,7 +87,22 @@ fun IntercityDriverScreen(viewModel: IntercityDriverViewModel, onBack: () -> Uni
             Text("Новая поездка", fontWeight = FontWeight.Bold)
 
             CityRow(label = "Откуда", value = viewModel.fromCityInput, onClick = { searchTarget = PickTarget.FROM })
+            PointModeRow(
+                label = "Посадка",
+                mode = viewModel.pickupMode,
+                singleText = "Одна точка — все садятся тут",
+                collectText = "Объезд — заберу каждого по адресу",
+                onChange = { viewModel.pickupMode = it }
+            )
+
             CityRow(label = "Куда", value = viewModel.toCityInput, onClick = { searchTarget = PickTarget.TO })
+            PointModeRow(
+                label = "Высадка",
+                mode = viewModel.dropoffMode,
+                singleText = "Одна точка — всех довезу туда",
+                collectText = "Развезу каждого по адресу",
+                onChange = { viewModel.dropoffMode = it }
+            )
 
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 OutlinedTextField(
@@ -205,6 +222,31 @@ fun IntercityDriverScreen(viewModel: IntercityDriverViewModel, onBack: () -> Uni
 }
 
 @Composable
+private fun PointModeRow(
+    label: String,
+    mode: TripPointMode,
+    singleText: String,
+    collectText: String,
+    onChange: (TripPointMode) -> Unit
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        Text(label, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            FilterChip(
+                selected = mode == TripPointMode.SINGLE,
+                onClick = { onChange(TripPointMode.SINGLE) },
+                label = { Text(singleText) }
+            )
+            FilterChip(
+                selected = mode == TripPointMode.COLLECT,
+                onClick = { onChange(TripPointMode.COLLECT) },
+                label = { Text(collectText) }
+            )
+        }
+    }
+}
+
+@Composable
 private fun CityRow(label: String, value: String, onClick: () -> Unit) {
     Card(modifier = Modifier.fillMaxWidth().clickable(onClick = onClick)) {
         Column(modifier = Modifier.fillMaxWidth().padding(14.dp)) {
@@ -216,6 +258,7 @@ private fun CityRow(label: String, value: String, onClick: () -> Unit) {
 
 @Composable
 private fun DriverTripCard(trip: IntercityTrip, onDepart: () -> Unit, onComplete: () -> Unit, onCancel: () -> Unit) {
+    val context = androidx.compose.ui.platform.LocalContext.current
     Card(modifier = Modifier.fillMaxWidth()) {
         Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
             Text("${trip.fromCity} → ${trip.toCity}", fontWeight = FontWeight.Bold)
@@ -227,13 +270,41 @@ private fun DriverTripCard(trip: IntercityTrip, onDepart: () -> Unit, onComplete
             Text("Забронировано ${trip.bookedSeats} из ${trip.totalSeats} мест")
             trip.scheduledAt?.let { Text("Дата отправления: $it", style = MaterialTheme.typography.bodySmall) }
             Text(statusLabel(trip.status), style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Bold)
+
+            if (trip.bookings.isNotEmpty()) {
+                HorizontalDivider()
+                Text("Пассажиры", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.bodyMedium)
+                trip.bookings.forEach { booking ->
+                    Column(modifier = Modifier.padding(vertical = 2.dp)) {
+                        Text(
+                            "${booking.passengerName ?: "Пассажир"} — ${booking.seats} " +
+                                (if (booking.seats == 1) "место" else "места")
+                        )
+                        booking.pickupAddress?.let { Text("Забрать: $it", style = MaterialTheme.typography.bodySmall) }
+                        booking.dropoffAddress?.let { Text("Довезти: $it", style = MaterialTheme.typography.bodySmall) }
+                        booking.passengerPhone?.let { phone ->
+                            TextButton(onClick = {
+                                context.startActivity(
+                                    android.content.Intent(android.content.Intent.ACTION_DIAL, android.net.Uri.parse("tel:$phone"))
+                                )
+                            }) { Text("Позвонить: $phone") }
+                        }
+                    }
+                }
+            }
+
             when (trip.status) {
                 IntercityStatus.OPEN, IntercityStatus.FULL -> Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     Button(onClick = onDepart, enabled = trip.bookedSeats > 0) { Text("Выехать") }
                     TextButton(onClick = onCancel) { Text("Отменить", color = MaterialTheme.colorScheme.error) }
                 }
-                IntercityStatus.IN_PROGRESS -> Button(onClick = onComplete, modifier = Modifier.fillMaxWidth()) {
-                    Text("Завершить поездку")
+                IntercityStatus.IN_PROGRESS -> {
+                    Button(onClick = onComplete, modifier = Modifier.fillMaxWidth()) {
+                        Text("Завершить поездку")
+                    }
+                    TextButton(onClick = onCancel, modifier = Modifier.fillMaxWidth()) {
+                        Text("Отменить (поездка сорвалась)", color = MaterialTheme.colorScheme.error)
+                    }
                 }
                 else -> {}
             }

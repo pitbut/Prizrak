@@ -70,7 +70,18 @@ data class WsEvent(
     val type: String,
     val ride: RideDto? = null,
     val message: ChatMessageDto? = null,
-    val intercityTrip: IntercityTripDto? = null
+    val intercityTrip: IntercityTripDto? = null,
+    val groupTrip: GroupTripDto? = null
+)
+
+data class IntercityBookingDto(
+    val id: String,
+    val passengerId: String,
+    val passengerName: String? = null,
+    val passengerPhone: String? = null,
+    val seats: Int,
+    val pickupAddress: String? = null,
+    val dropoffAddress: String? = null
 )
 
 data class IntercityTripDto(
@@ -78,6 +89,8 @@ data class IntercityTripDto(
     val driverId: String,
     val driverName: String? = null,
     val driverPhone: String? = null,
+    val driverCarMake: String? = null,
+    val driverCarPlate: String? = null,
     val fromCity: String,
     val toCity: String,
     val totalSeats: Int,
@@ -86,7 +99,12 @@ data class IntercityTripDto(
     val scheduledAt: String? = null,
     val status: String,
     val createdAt: String? = null,
-    val myBookedSeats: Int? = null
+    val myBookedSeats: Int? = null,
+    val pickupMode: String? = null,
+    val dropoffMode: String? = null,
+    val pickupPoint: String? = null,
+    val dropoffPoint: String? = null,
+    val bookings: List<IntercityBookingDto>? = null
 )
 
 data class CreateIntercityTripRequest(
@@ -94,10 +112,53 @@ data class CreateIntercityTripRequest(
     val toCity: String,
     val totalSeats: Int,
     val pricePerSeat: Double,
-    val scheduledAt: String? = null
+    val scheduledAt: String? = null,
+    val pickupMode: String = "single",
+    val dropoffMode: String = "single",
+    val pickupPoint: String? = null,
+    val dropoffPoint: String? = null
 )
 
-data class BookSeatsRequest(val seats: Int)
+data class BookSeatsRequest(
+    val seats: Int,
+    val pickupAddress: String? = null,
+    val dropoffAddress: String? = null
+)
+
+data class GroupTripOfferDto(
+    val id: String,
+    val driverId: String,
+    val driverName: String? = null,
+    val driverPhone: String? = null,
+    val carMake: String? = null,
+    val carPlate: String? = null,
+    val seatsOffered: Int,
+    val status: String
+)
+
+data class GroupTripDto(
+    val id: String,
+    val passengerId: String,
+    val passengerName: String? = null,
+    val passengerPhone: String? = null,
+    val fromCity: String,
+    val toCity: String,
+    val peopleCount: Int,
+    val seatsConfirmed: Int,
+    val desiredAt: String? = null,
+    val status: String,
+    val createdAt: String? = null,
+    val offers: List<GroupTripOfferDto>? = null
+)
+
+data class CreateGroupTripRequest(
+    val fromCity: String,
+    val toCity: String,
+    val peopleCount: Int,
+    val desiredAt: String? = null
+)
+
+data class GroupTripOfferRequest(val seats: Int)
 
 data class ChatMessageDto(
     val id: String,

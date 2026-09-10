@@ -188,5 +188,6 @@ class DriverViewModel : ViewModel() {
     fun accept(rideId: String) = RideRepository.acceptRide(rideId)
     fun start(rideId: String) = RideRepository.startRide(rideId)
     fun complete(rideId: String) = RideRepository.completeRide(rideId)
+    fun cancel(rideId: String) = RideRepository.cancelRide(rideId)
     fun payCommission() = RideRepository.payCommission()
 }

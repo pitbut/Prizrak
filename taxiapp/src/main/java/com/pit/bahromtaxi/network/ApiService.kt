@@ -47,6 +47,9 @@ interface ApiService {
     @POST("rides/{id}/complete")
     suspend fun completeRide(@Path("id") id: String): RideDto
 
+    @POST("rides/{id}/cancel")
+    suspend fun cancelRide(@Path("id") id: String): RideDto
+
     @POST("drivers/{id}/online")
     suspend fun setOnline(@Path("id") id: String, @Body body: OnlineRequest)
 
@@ -96,4 +99,28 @@ interface ApiService {
 
     @POST("intercity/trips/{id}/cancel")
     suspend fun cancelIntercityTrip(@Path("id") id: String): IntercityTripDto
+
+    @GET("group-trips/open")
+    suspend fun openGroupTrips(): List<GroupTripDto>
+
+    @GET("group-trips/mine")
+    suspend fun myGroupTrips(): List<GroupTripDto>
+
+    @POST("group-trips")
+    suspend fun createGroupTrip(@Body body: CreateGroupTripRequest): GroupTripDto
+
+    @POST("group-trips/{id}/offer")
+    suspend fun offerGroupTripSeats(@Path("id") id: String, @Body body: GroupTripOfferRequest): GroupTripDto
+
+    @POST("group-trips/{id}/offers/{offerId}/accept")
+    suspend fun acceptGroupTripOffer(@Path("id") id: String, @Path("offerId") offerId: String): GroupTripDto
+
+    @POST("group-trips/{id}/offers/{offerId}/reject")
+    suspend fun rejectGroupTripOffer(@Path("id") id: String, @Path("offerId") offerId: String): GroupTripDto
+
+    @POST("group-trips/{id}/offers/{offerId}/cancel")
+    suspend fun cancelGroupTripOffer(@Path("id") id: String, @Path("offerId") offerId: String): GroupTripDto
+
+    @POST("group-trips/{id}/cancel")
+    suspend fun cancelGroupTrip(@Path("id") id: String): GroupTripDto
 }
