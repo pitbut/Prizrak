@@ -3,6 +3,7 @@ package com.pit.bahromtaxi.network
 import okhttp3.MultipartBody
 import okhttp3.RequestBody
 import retrofit2.http.Body
+import retrofit2.http.DELETE
 import retrofit2.http.GET
 import retrofit2.http.Multipart
 import retrofit2.http.PATCH
@@ -65,4 +66,7 @@ interface ApiService {
         @Part("text") text: RequestBody?,
         @Part image: MultipartBody.Part?
     ): ChatMessageDto
+
+    @DELETE("account")
+    suspend fun deleteAccount()
 }

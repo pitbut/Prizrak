@@ -16,6 +16,7 @@ import com.pit.bahromtaxi.network.RegisterRequest
 import com.pit.bahromtaxi.network.RideDto
 import com.pit.bahromtaxi.network.RideSocket
 import com.pit.bahromtaxi.network.WsEvent
+import com.google.firebase.auth.FirebaseAuth
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -173,6 +174,26 @@ object RideRepository {
     }
         .onFailure { _lastError.value = "Не удалось загрузить историю: ${it.message}" }
         .getOrElse { emptyList() }
+
+    /**
+     * Удаляет аккаунт (soft delete на сервере — история поездок остаётся видна обеим сторонам).
+     * После успеха стирает локальную сессию активной роли и выходит из Firebase, чтобы то же
+     * имя/телефон/почта можно было сразу использовать для новой регистрации.
+     */
+    suspend fun deleteAccount(): Boolean = runCatching { api.deleteAccount() }
+        .onSuccess {
+            socket?.close()
+            socket = null
+            connectedRole = null
+            _rides.value = emptyList()
+            _driverOnline.value = false
+            _commissionOwed.value = 0.0
+            _commissionPaid.value = 0.0
+            AuthStore.clearActiveRole()
+            runCatching { FirebaseAuth.getInstance().signOut() }
+        }
+        .onFailure { _lastError.value = "Не удалось удалить аккаунт: ${it.message}" }
+        .isSuccess
 
     fun setDriverOnline(online: Boolean) {
         val driverId = AuthStore.userId ?: return

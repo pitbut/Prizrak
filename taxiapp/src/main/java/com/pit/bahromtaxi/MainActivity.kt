@@ -59,7 +59,15 @@ class MainActivity : ComponentActivity() {
                     }
                     composable("profile") {
                         val vm: ProfileViewModel = viewModel()
-                        ProfileScreen(viewModel = vm, onBack = { navController.popBackStack() })
+                        ProfileScreen(
+                            viewModel = vm,
+                            onBack = { navController.popBackStack() },
+                            onAccountDeleted = {
+                                navController.navigate("role") {
+                                    popUpTo("role") { inclusive = true }
+                                }
+                            }
+                        )
                     }
                     composable("history") {
                         val vm: RideHistoryViewModel = viewModel()

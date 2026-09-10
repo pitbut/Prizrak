@@ -19,6 +19,8 @@ class ProfileViewModel : ViewModel() {
         private set
     var error by mutableStateOf<String?>(null)
         private set
+    var deleting by mutableStateOf(false)
+        private set
 
     var nameInput by mutableStateOf("")
     var phoneInput by mutableStateOf("")
@@ -70,6 +72,16 @@ class ProfileViewModel : ViewModel() {
                 error = "Не удалось сохранить"
             }
             saving = false
+        }
+    }
+
+    fun deleteAccount(onDeleted: () -> Unit) {
+        error = null
+        deleting = true
+        viewModelScope.launch {
+            val success = RideRepository.deleteAccount()
+            deleting = false
+            if (success) onDeleted() else error = "Не удалось удалить аккаунт"
         }
     }
 }

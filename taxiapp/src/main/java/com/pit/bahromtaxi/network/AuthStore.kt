@@ -57,4 +57,17 @@ object AuthStore {
         name = newName
         prefs.edit().putString("name_$activeRole", newName).apply()
     }
+
+    /** Стирает сохранённую сессию активной роли (например, после удаления аккаунта) — вернёт на экран входа. */
+    fun clearActiveRole() {
+        val activeRole = role ?: return
+        prefs.edit()
+            .remove("token_$activeRole")
+            .remove("user_id_$activeRole")
+            .remove("name_$activeRole")
+            .apply()
+        token = null
+        userId = null
+        name = null
+    }
 }
