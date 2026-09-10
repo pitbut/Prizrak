@@ -28,6 +28,8 @@ import androidx.compose.material.icons.filled.DirectionsBus
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.MyLocation
 import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.SwapVert
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CircularProgressIndicator
@@ -99,7 +101,9 @@ fun ClientScreen(
     onOpenProfile: () -> Unit,
     onOpenHistory: () -> Unit,
     onOpenChat: (String) -> Unit,
-    onOpenIntercity: () -> Unit
+    onOpenIntercity: () -> Unit,
+    pendingLocation: Coordinate? = null,
+    onPendingLocationConsumed: () -> Unit = {}
 ) {
     val context = LocalContext.current
 
@@ -112,12 +116,39 @@ fun ClientScreen(
     }
     var searchTarget by remember { mutableStateOf<PickTarget?>(null) }
 
+    // Последнее известное местоположение — чтобы поиск адреса искал в первую очередь
+    // рядом с пользователем, а не по всему миру. Без разрешения/фикса — центр Ташкента.
+    var myLocation by remember { mutableStateOf<Coordinate?>(null) }
+    LaunchedEffect(locationGranted) {
+        if (!locationGranted) return@LaunchedEffect
+        runCatching {
+            val lm = context.getSystemService(android.content.Context.LOCATION_SERVICE) as? android.location.LocationManager
+            lm?.getProviders(true)
+                ?.mapNotNull { provider -> lm.getLastKnownLocation(provider) }
+                ?.maxByOrNull { it.time }
+        }.getOrNull()?.let { location ->
+            myLocation = Coordinate(location.latitude, location.longitude)
+        }
+    }
+
     val rides by viewModel.rides.collectAsState()
     val error by viewModel.lastError.collectAsState()
     val activeRide = rides.find { it.id == viewModel.activeRideId }
 
     LaunchedEffect(registered) {
         if (registered) RideRepository.ensureConnected()
+    }
+
+    // Локация, которой поделились из другого приложения (например, Telegram) — как только
+    // пользователь зарегистрирован, предлагаем использовать её как "Откуда" или "Куда".
+    var pendingPlace by remember { mutableStateOf<PlacePoint?>(null) }
+    LaunchedEffect(pendingLocation, registered) {
+        val coordinate = pendingLocation ?: return@LaunchedEffect
+        if (!registered) return@LaunchedEffect
+        val address = NominatimClient.reverse(coordinate).getOrElse {
+            "Точка (%.5f, %.5f)".format(Locale.US, coordinate.lat, coordinate.lng)
+        }
+        pendingPlace = PlacePoint(address, coordinate)
     }
 
     val locationPermissionLauncher = rememberLauncherForActivityResult(
@@ -177,10 +208,33 @@ fun ClientScreen(
     searchTarget?.let { target ->
         AddressSearchDialog(
             title = if (target == PickTarget.FROM) "Откуда" else "Куда",
+            near = myLocation ?: TASHKENT,
             onDismiss = { searchTarget = null },
             onSelect = { place ->
                 if (target == PickTarget.FROM) viewModel.chooseFromPlace(place) else viewModel.chooseToPlace(place)
                 searchTarget = null
+            }
+        )
+    }
+
+    pendingPlace?.let { place ->
+        AlertDialog(
+            onDismissRequest = { pendingPlace = null; onPendingLocationConsumed() },
+            title = { Text("Локация из другого приложения") },
+            text = { Text(place.address) },
+            confirmButton = {
+                TextButton(onClick = {
+                    viewModel.chooseToPlace(place)
+                    pendingPlace = null
+                    onPendingLocationConsumed()
+                }) { Text("Как «Куда»") }
+            },
+            dismissButton = {
+                TextButton(onClick = {
+                    viewModel.chooseFromPlace(place)
+                    pendingPlace = null
+                    onPendingLocationConsumed()
+                }) { Text("Как «Откуда»") }
             }
         )
     }
@@ -316,7 +370,7 @@ private fun PhoneAuthGate(viewModel: ClientViewModel, onDone: () -> Unit) {
 }
 
 @Composable
-private fun AddressSearchDialog(title: String, onDismiss: () -> Unit, onSelect: (PlacePoint) -> Unit) {
+private fun AddressSearchDialog(title: String, near: Coordinate, onDismiss: () -> Unit, onSelect: (PlacePoint) -> Unit) {
     var query by remember { mutableStateOf("") }
     var results by remember { mutableStateOf<List<PlacePoint>>(emptyList()) }
     var loading by remember { mutableStateOf(false) }
@@ -329,7 +383,7 @@ private fun AddressSearchDialog(title: String, onDismiss: () -> Unit, onSelect: 
         }
         delay(600) // не долбить Nominatim на каждое нажатие клавиши — лимит ~1 запрос/сек
         loading = true
-        NominatimClient.search(trimmed)
+        NominatimClient.search(trimmed, near = near)
             .onSuccess { results = it }
             .onFailure { results = emptyList() }
         loading = false
@@ -393,20 +447,30 @@ private fun OrderForm(
             }
         }
 
-        AddressRow(
-            label = "Откуда",
-            value = viewModel.fromPlace?.address,
-            picking = viewModel.pickTarget == PickTarget.FROM,
-            onClick = onSearchFrom,
-            onPickOnMap = { viewModel.startPicking(PickTarget.FROM) }
-        )
-        AddressRow(
-            label = "Куда",
-            value = viewModel.toPlace?.address,
-            picking = viewModel.pickTarget == PickTarget.TO,
-            onClick = onSearchTo,
-            onPickOnMap = { viewModel.startPicking(PickTarget.TO) }
-        )
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                AddressRow(
+                    label = "Откуда",
+                    value = viewModel.fromPlace?.address,
+                    picking = viewModel.pickTarget == PickTarget.FROM,
+                    onClick = onSearchFrom,
+                    onPickOnMap = { viewModel.startPicking(PickTarget.FROM) }
+                )
+                AddressRow(
+                    label = "Куда",
+                    value = viewModel.toPlace?.address,
+                    picking = viewModel.pickTarget == PickTarget.TO,
+                    onClick = onSearchTo,
+                    onPickOnMap = { viewModel.startPicking(PickTarget.TO) }
+                )
+            }
+            IconButton(
+                onClick = { viewModel.swapFromTo() },
+                enabled = viewModel.fromPlace != null || viewModel.toPlace != null
+            ) {
+                Icon(Icons.Filled.SwapVert, contentDescription = "Поменять местами «Откуда» и «Куда»")
+            }
+        }
 
         if (viewModel.orderType == OrderType.DELIVERY) {
             OutlinedTextField(

@@ -206,6 +206,16 @@ class ClientViewModel : ViewModel() {
         fetchRouteIfReady()
     }
 
+    /** Меняет местами "Откуда" и "Куда" — если перепутал при выборе точек. */
+    fun swapFromTo() {
+        val from = fromPlace
+        val to = toPlace
+        fromPlace = to
+        toPlace = from
+        route = null
+        fetchRouteIfReady()
+    }
+
     private fun fetchRouteIfReady() {
         val from = fromPlace ?: return
         val to = toPlace ?: return

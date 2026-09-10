@@ -1,15 +1,22 @@
 package com.pit.bahromtaxi
 
+import android.content.Intent
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
+import com.pit.bahromtaxi.maps.Coordinate
+import com.pit.bahromtaxi.maps.GeoUri
 import com.pit.bahromtaxi.ui.BahromTaxiTheme
 import com.pit.bahromtaxi.ui.RoleSelectScreen
 import com.pit.bahromtaxi.ui.carrier.CarrierScreen
@@ -30,12 +37,23 @@ import com.pit.bahromtaxi.ui.profile.ProfileScreen
 import com.pit.bahromtaxi.ui.profile.ProfileViewModel
 
 class MainActivity : ComponentActivity() {
+
+    private var pendingLocation by mutableStateOf<Coordinate?>(null)
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+        pendingLocation = intent?.data?.let(GeoUri::parse)
         setContent {
             BahromTaxiTheme {
                 val navController = rememberNavController()
+                // Локация, которой поделились из другого приложения (Telegram и т.п.), — сразу
+                // ведём в экран пассажира, чтобы предложить использовать её как "Откуда"/"Куда".
+                LaunchedEffect(pendingLocation) {
+                    if (pendingLocation != null) {
+                        navController.navigate("client") { launchSingleTop = true }
+                    }
+                }
                 NavHost(navController = navController, startDestination = "role") {
                     composable("role") {
                         RoleSelectScreen(
@@ -52,7 +70,9 @@ class MainActivity : ComponentActivity() {
                             onOpenProfile = { navController.navigate("profile") },
                             onOpenHistory = { navController.navigate("history") },
                             onOpenChat = { rideId -> navController.navigate("chat/$rideId") },
-                            onOpenIntercity = { navController.navigate("intercity_passenger") }
+                            onOpenIntercity = { navController.navigate("intercity_passenger") },
+                            pendingLocation = pendingLocation,
+                            onPendingLocationConsumed = { pendingLocation = null }
                         )
                     }
                     composable("driver") {
@@ -111,5 +131,11 @@ class MainActivity : ComponentActivity() {
                 }
             }
         }
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        intent.data?.let(GeoUri::parse)?.let { pendingLocation = it }
     }
 }
