@@ -9,6 +9,7 @@ import com.pit.bahromtaxi.network.ApiClient
 import com.pit.bahromtaxi.network.AuthStore
 import com.pit.bahromtaxi.network.ChatMessageDto
 import com.pit.bahromtaxi.network.CreateRideRequest
+import com.pit.bahromtaxi.network.IntercityTripDto
 import com.pit.bahromtaxi.network.OnlineRequest
 import com.pit.bahromtaxi.network.ProfileDto
 import com.pit.bahromtaxi.network.ProfileUpdateRequest
@@ -57,6 +58,9 @@ object RideRepository {
 
     private val _chatMessages = MutableSharedFlow<ChatMessageDto>(extraBufferCapacity = 16)
     val chatMessages: SharedFlow<ChatMessageDto> = _chatMessages
+
+    private val _intercityTripEvents = MutableSharedFlow<IntercityTripDto>(extraBufferCapacity = 16)
+    val intercityTripEvents: SharedFlow<IntercityTripDto> = _intercityTripEvents
 
     private var socket: RideSocket? = null
     private var connectedRole: String? = null
@@ -248,6 +252,10 @@ object RideRepository {
     private fun handleEvent(event: WsEvent) {
         if (event.type == "chat_message") {
             event.message?.let { _chatMessages.tryEmit(it) }
+            return
+        }
+        if (event.type == "intercity_trip") {
+            event.intercityTrip?.let { _intercityTripEvents.tryEmit(it) }
             return
         }
         val ride = event.ride?.toDomain() ?: return

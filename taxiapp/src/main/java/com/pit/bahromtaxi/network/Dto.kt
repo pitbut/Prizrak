@@ -66,7 +66,38 @@ data class OnlineRequest(val online: Boolean)
 
 data class CommissionDto(val owed: Double, val paid: Double)
 
-data class WsEvent(val type: String, val ride: RideDto? = null, val message: ChatMessageDto? = null)
+data class WsEvent(
+    val type: String,
+    val ride: RideDto? = null,
+    val message: ChatMessageDto? = null,
+    val intercityTrip: IntercityTripDto? = null
+)
+
+data class IntercityTripDto(
+    val id: String,
+    val driverId: String,
+    val driverName: String? = null,
+    val driverPhone: String? = null,
+    val fromCity: String,
+    val toCity: String,
+    val totalSeats: Int,
+    val bookedSeats: Int,
+    val pricePerSeat: Double,
+    val scheduledAt: String? = null,
+    val status: String,
+    val createdAt: String? = null,
+    val myBookedSeats: Int? = null
+)
+
+data class CreateIntercityTripRequest(
+    val fromCity: String,
+    val toCity: String,
+    val totalSeats: Int,
+    val pricePerSeat: Double,
+    val scheduledAt: String? = null
+)
+
+data class BookSeatsRequest(val seats: Int)
 
 data class ChatMessageDto(
     val id: String,

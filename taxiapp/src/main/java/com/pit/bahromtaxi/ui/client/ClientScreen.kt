@@ -24,6 +24,7 @@ import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.filled.DirectionsBus
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.MyLocation
 import androidx.compose.material.icons.filled.Person
@@ -97,7 +98,8 @@ fun ClientScreen(
     onBack: () -> Unit,
     onOpenProfile: () -> Unit,
     onOpenHistory: () -> Unit,
-    onOpenChat: (String) -> Unit
+    onOpenChat: (String) -> Unit,
+    onOpenIntercity: () -> Unit
 ) {
     val context = LocalContext.current
 
@@ -133,6 +135,9 @@ fun ClientScreen(
                 },
                 actions = {
                     if (registered) {
+                        IconButton(onClick = onOpenIntercity) {
+                            Icon(Icons.Filled.DirectionsBus, contentDescription = "Межгород")
+                        }
                         IconButton(onClick = onOpenHistory) {
                             Icon(Icons.Filled.History, contentDescription = "История поездок")
                         }

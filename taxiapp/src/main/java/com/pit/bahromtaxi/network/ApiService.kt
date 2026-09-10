@@ -69,4 +69,31 @@ interface ApiService {
 
     @DELETE("account")
     suspend fun deleteAccount()
+
+    @GET("intercity/trips")
+    suspend fun intercityTrips(
+        @Query("from") fromCity: String? = null,
+        @Query("to") toCity: String? = null
+    ): List<IntercityTripDto>
+
+    @GET("intercity/trips/mine")
+    suspend fun myIntercityTrips(): List<IntercityTripDto>
+
+    @POST("intercity/trips")
+    suspend fun createIntercityTrip(@Body body: CreateIntercityTripRequest): IntercityTripDto
+
+    @POST("intercity/trips/{id}/book")
+    suspend fun bookIntercitySeats(@Path("id") id: String, @Body body: BookSeatsRequest): IntercityTripDto
+
+    @POST("intercity/trips/{id}/cancel-booking")
+    suspend fun cancelIntercityBooking(@Path("id") id: String): IntercityTripDto
+
+    @POST("intercity/trips/{id}/depart")
+    suspend fun departIntercityTrip(@Path("id") id: String): IntercityTripDto
+
+    @POST("intercity/trips/{id}/complete")
+    suspend fun completeIntercityTrip(@Path("id") id: String): IntercityTripDto
+
+    @POST("intercity/trips/{id}/cancel")
+    suspend fun cancelIntercityTrip(@Path("id") id: String): IntercityTripDto
 }

@@ -15,6 +15,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.filled.DirectionsBus
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material3.Button
@@ -58,7 +59,8 @@ fun DriverScreen(
     onBack: () -> Unit,
     onOpenProfile: () -> Unit,
     onOpenHistory: () -> Unit,
-    onOpenChat: (String) -> Unit
+    onOpenChat: (String) -> Unit,
+    onOpenIntercity: () -> Unit
 ) {
     var registered by remember { mutableStateOf(viewModel.isRegistered) }
     val online by viewModel.online.collectAsState()
@@ -93,6 +95,9 @@ fun DriverScreen(
                 },
                 actions = {
                     if (registered) {
+                        IconButton(onClick = onOpenIntercity) {
+                            Icon(Icons.Filled.DirectionsBus, contentDescription = "Межгород")
+                        }
                         IconButton(onClick = onOpenHistory) {
                             Icon(Icons.Filled.History, contentDescription = "История поездок")
                         }

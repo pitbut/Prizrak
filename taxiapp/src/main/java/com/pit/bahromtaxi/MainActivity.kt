@@ -22,6 +22,10 @@ import com.pit.bahromtaxi.ui.driver.DriverScreen
 import com.pit.bahromtaxi.ui.driver.DriverViewModel
 import com.pit.bahromtaxi.ui.history.RideHistoryScreen
 import com.pit.bahromtaxi.ui.history.RideHistoryViewModel
+import com.pit.bahromtaxi.ui.intercity.IntercityDriverScreen
+import com.pit.bahromtaxi.ui.intercity.IntercityDriverViewModel
+import com.pit.bahromtaxi.ui.intercity.IntercityPassengerScreen
+import com.pit.bahromtaxi.ui.intercity.IntercityPassengerViewModel
 import com.pit.bahromtaxi.ui.profile.ProfileScreen
 import com.pit.bahromtaxi.ui.profile.ProfileViewModel
 
@@ -47,7 +51,8 @@ class MainActivity : ComponentActivity() {
                             onBack = { navController.popBackStack() },
                             onOpenProfile = { navController.navigate("profile") },
                             onOpenHistory = { navController.navigate("history") },
-                            onOpenChat = { rideId -> navController.navigate("chat/$rideId") }
+                            onOpenChat = { rideId -> navController.navigate("chat/$rideId") },
+                            onOpenIntercity = { navController.navigate("intercity_passenger") }
                         )
                     }
                     composable("driver") {
@@ -57,8 +62,17 @@ class MainActivity : ComponentActivity() {
                             onBack = { navController.popBackStack() },
                             onOpenProfile = { navController.navigate("profile") },
                             onOpenHistory = { navController.navigate("history") },
-                            onOpenChat = { rideId -> navController.navigate("chat/$rideId") }
+                            onOpenChat = { rideId -> navController.navigate("chat/$rideId") },
+                            onOpenIntercity = { navController.navigate("intercity_driver") }
                         )
+                    }
+                    composable("intercity_passenger") {
+                        val vm: IntercityPassengerViewModel = viewModel()
+                        IntercityPassengerScreen(viewModel = vm, onBack = { navController.popBackStack() })
+                    }
+                    composable("intercity_driver") {
+                        val vm: IntercityDriverViewModel = viewModel()
+                        IntercityDriverScreen(viewModel = vm, onBack = { navController.popBackStack() })
                     }
                     composable("carrier") {
                         val vm: CarrierViewModel = viewModel()
