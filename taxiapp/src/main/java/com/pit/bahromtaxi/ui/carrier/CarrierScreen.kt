@@ -1,4 +1,4 @@
-package com.pit.bahromtaxi.ui.driver
+package com.pit.bahromtaxi.ui.carrier
 
 import android.content.Intent
 import android.net.Uri
@@ -51,10 +51,11 @@ import com.pit.bahromtaxi.domain.RideStatus
 import com.pit.bahromtaxi.domain.label
 import java.util.Locale
 
+/** Перевозчик видит и берёт только грузовые заказы (OrderType.CARGO) — обычные поездки и доставки ему не показываются. */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun DriverScreen(
-    viewModel: DriverViewModel,
+fun CarrierScreen(
+    viewModel: CarrierViewModel,
     onBack: () -> Unit,
     onOpenProfile: () -> Unit,
     onOpenHistory: () -> Unit,
@@ -62,7 +63,7 @@ fun DriverScreen(
 ) {
     var registered by remember { mutableStateOf(viewModel.isRegistered) }
     val online by viewModel.online.collectAsState()
-    val rides by viewModel.rides.collectAsState()
+    val allRides by viewModel.rides.collectAsState()
     val commissionOwed by viewModel.commissionOwed.collectAsState()
     val commissionPaid by viewModel.commissionPaid.collectAsState()
     val error by viewModel.lastError.collectAsState()
@@ -74,18 +75,17 @@ fun DriverScreen(
         }
     }
 
-    // Грузовые заказы (OrderType.CARGO) видят и берут только перевозчики, не обычные водители.
-    val driverRides = rides.filter { it.orderType != OrderType.CARGO }
-    val myRide = driverRides.find {
-        it.driverId == viewModel.driverId &&
+    val cargoRides = allRides.filter { it.orderType == OrderType.CARGO }
+    val myRide = cargoRides.find {
+        it.driverId == viewModel.carrierId &&
             (it.status == RideStatus.ACCEPTED || it.status == RideStatus.IN_PROGRESS)
     }
-    val pending = driverRides.filter { it.status == RideStatus.SEARCHING }
+    val pending = cargoRides.filter { it.status == RideStatus.SEARCHING }
 
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Водитель") },
+                title = { Text("Перевозчик") },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(Icons.Filled.ArrowBack, contentDescription = "Назад")
@@ -94,7 +94,7 @@ fun DriverScreen(
                 actions = {
                     if (registered) {
                         IconButton(onClick = onOpenHistory) {
-                            Icon(Icons.Filled.History, contentDescription = "История поездок")
+                            Icon(Icons.Filled.History, contentDescription = "История заказов")
                         }
                         IconButton(onClick = onOpenProfile) {
                             Icon(Icons.Filled.Person, contentDescription = "Кабинет")
@@ -113,7 +113,7 @@ fun DriverScreen(
             }
 
             if (!registered) {
-                PhoneAuthGate(viewModel = viewModel, onDone = { registered = true })
+                CarrierPhoneAuthGate(viewModel = viewModel, onDone = { registered = true })
                 return@Column
             }
 
@@ -126,29 +126,29 @@ fun DriverScreen(
                 Switch(checked = online, onCheckedChange = { viewModel.setOnline(it) })
             }
 
-            CommissionCard(owed = commissionOwed, paid = commissionPaid, onPay = { viewModel.payCommission() })
+            CarrierCommissionCard(owed = commissionOwed, paid = commissionPaid, onPay = { viewModel.payCommission() })
 
             HorizontalDivider()
 
             when {
                 myRide != null -> {
-                    Text("Текущая поездка", fontWeight = FontWeight.Bold)
-                    DriverRideCard(myRide, viewModel, onOpenChat = { onOpenChat(myRide.id) })
+                    Text("Текущий груз", fontWeight = FontWeight.Bold)
+                    CarrierRideCard(myRide, viewModel, onOpenChat = { onOpenChat(myRide.id) })
                 }
                 online -> {
-                    Text("Свободные заказы", fontWeight = FontWeight.Bold)
+                    Text("Свободные грузовые заказы", fontWeight = FontWeight.Bold)
                     if (pending.isEmpty()) {
-                        Text("Пока нет заказов поблизости.")
+                        Text("Пока нет грузовых заказов поблизости.")
                     } else {
                         LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                             items(pending, key = { it.id }) { ride ->
-                                PendingRideCard(ride, onAccept = { viewModel.accept(ride.id) })
+                                CarrierPendingRideCard(ride, onAccept = { viewModel.accept(ride.id) })
                             }
                         }
                     }
                 }
                 else -> {
-                    Text("Выйдите на линию, чтобы видеть заказы.")
+                    Text("Выйдите на линию, чтобы видеть грузовые заказы.")
                 }
             }
         }
@@ -156,7 +156,7 @@ fun DriverScreen(
 }
 
 @Composable
-private fun PhoneAuthGate(viewModel: DriverViewModel, onDone: () -> Unit) {
+private fun CarrierPhoneAuthGate(viewModel: CarrierViewModel, onDone: () -> Unit) {
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
         viewModel.authError?.let {
             SelectionContainer {
@@ -164,7 +164,7 @@ private fun PhoneAuthGate(viewModel: DriverViewModel, onDone: () -> Unit) {
             }
         }
         when (viewModel.authStep) {
-            DriverAuthStep.PHONE -> {
+            CarrierAuthStep.PHONE -> {
                 if (!viewModel.showEmailForm) {
                     Text("Ваш номер телефона", fontWeight = FontWeight.Bold)
                     OutlinedTextField(
@@ -185,7 +185,7 @@ private fun PhoneAuthGate(viewModel: DriverViewModel, onDone: () -> Unit) {
                         Text("Войти по email вместо телефона")
                     }
                 } else {
-                    val isRegister = viewModel.emailAuthMode == DriverEmailAuthMode.REGISTER
+                    val isRegister = viewModel.emailAuthMode == CarrierEmailAuthMode.REGISTER
                     Text(if (isRegister) "Регистрация по email" else "Вход по email", fontWeight = FontWeight.Bold)
                     OutlinedTextField(
                         value = viewModel.emailInput,
@@ -228,7 +228,7 @@ private fun PhoneAuthGate(viewModel: DriverViewModel, onDone: () -> Unit) {
                     }
                 }
             }
-            DriverAuthStep.CODE -> {
+            CarrierAuthStep.CODE -> {
                 Text("Код из SMS", fontWeight = FontWeight.Bold)
                 Text("Отправлен на ${viewModel.phoneInput}", style = MaterialTheme.typography.bodySmall)
                 OutlinedTextField(
@@ -246,7 +246,7 @@ private fun PhoneAuthGate(viewModel: DriverViewModel, onDone: () -> Unit) {
                     if (viewModel.authLoading) CircularProgressIndicator(modifier = Modifier.height(20.dp)) else Text("Подтвердить")
                 }
             }
-            DriverAuthStep.VERIFY_EMAIL -> {
+            CarrierAuthStep.VERIFY_EMAIL -> {
                 Text("Подтвердите email", fontWeight = FontWeight.Bold)
                 Text(
                     "Мы отправили письмо на ${viewModel.emailInput}. Перейдите по ссылке в письме, " +
@@ -264,8 +264,8 @@ private fun PhoneAuthGate(viewModel: DriverViewModel, onDone: () -> Unit) {
                     Text("Отправить письмо ещё раз")
                 }
             }
-            DriverAuthStep.PROFILE -> {
-                Text("Данные водителя", fontWeight = FontWeight.Bold)
+            CarrierAuthStep.PROFILE -> {
+                Text("Данные перевозчика", fontWeight = FontWeight.Bold)
                 OutlinedTextField(
                     value = viewModel.nameInput,
                     onValueChange = { viewModel.nameInput = it },
@@ -273,25 +273,17 @@ private fun PhoneAuthGate(viewModel: DriverViewModel, onDone: () -> Unit) {
                     modifier = Modifier.fillMaxWidth()
                 )
                 OutlinedTextField(
-                    value = viewModel.carMake,
-                    onValueChange = { viewModel.carMake = it },
-                    label = { Text("Марка и модель авто") },
+                    value = viewModel.vehicleType,
+                    onValueChange = { viewModel.vehicleType = it },
+                    label = { Text("Тип машины (Газель, фура, грузовик...)") },
                     modifier = Modifier.fillMaxWidth()
                 )
-                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    OutlinedTextField(
-                        value = viewModel.carColor,
-                        onValueChange = { viewModel.carColor = it },
-                        label = { Text("Цвет") },
-                        modifier = Modifier.weight(1f)
-                    )
-                    OutlinedTextField(
-                        value = viewModel.carPlate,
-                        onValueChange = { viewModel.carPlate = it },
-                        label = { Text("Гос. номер") },
-                        modifier = Modifier.weight(1f)
-                    )
-                }
+                OutlinedTextField(
+                    value = viewModel.capacityKgInput,
+                    onValueChange = { viewModel.capacityKgInput = it },
+                    label = { Text("Грузоподъёмность, кг") },
+                    modifier = Modifier.fillMaxWidth()
+                )
                 OutlinedTextField(
                     value = viewModel.clickHandle,
                     onValueChange = { viewModel.clickHandle = it },
@@ -299,8 +291,7 @@ private fun PhoneAuthGate(viewModel: DriverViewModel, onDone: () -> Unit) {
                     modifier = Modifier.fillMaxWidth()
                 )
                 Text(
-                    "Марка, цвет и номер помогают пассажиру узнать машину. Click — если хотите принимать " +
-                        "оплату переводом, а не только наличными или картой на месте.",
+                    "Тип машины и грузоподъёмность помогают заказчику понять, подходит ли она для его груза.",
                     style = MaterialTheme.typography.bodySmall
                 )
                 Button(
@@ -316,10 +307,10 @@ private fun PhoneAuthGate(viewModel: DriverViewModel, onDone: () -> Unit) {
 }
 
 @Composable
-private fun CommissionCard(owed: Double, paid: Double, onPay: () -> Unit) {
+private fun CarrierCommissionCard(owed: Double, paid: Double, onPay: () -> Unit) {
     Card(modifier = Modifier.fillMaxWidth()) {
         Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-            Text("Комиссия агрегатора — 1% с поездки", fontWeight = FontWeight.Bold)
+            Text("Комиссия агрегатора — 1% с заказа", fontWeight = FontWeight.Bold)
             Text("К оплате: ${fmt2(owed)} ₽")
             Text("Оплачено всего: ${fmt2(paid)} ₽", style = MaterialTheme.typography.bodySmall)
             if (owed > 0.0) {
@@ -331,15 +322,12 @@ private fun CommissionCard(owed: Double, paid: Double, onPay: () -> Unit) {
 }
 
 @Composable
-private fun PendingRideCard(ride: Ride, onAccept: () -> Unit) {
+private fun CarrierPendingRideCard(ride: Ride, onAccept: () -> Unit) {
     Card(modifier = Modifier.fillMaxWidth()) {
         Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-            when (ride.orderType) {
-                OrderType.DELIVERY -> Text("Доставка", color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
-                OrderType.CARGO -> Text("Груз", color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
-                OrderType.RIDE -> {}
-            }
             Text("${ride.fromAddress} → ${ride.toAddress}", fontWeight = FontWeight.Bold)
+            ride.cargoDescription?.let { Text("Груз: $it") }
+            ride.cargoWeightKg?.let { Text("Вес: $it кг") }
             Text("${fmt1(ride.distanceKm)} км · ${ride.durationMin.toInt()} мин · ${ride.paymentMethod.label}")
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -360,48 +348,37 @@ private fun PendingRideCard(ride: Ride, onAccept: () -> Unit) {
 }
 
 @Composable
-private fun DriverRideCard(ride: Ride, viewModel: DriverViewModel, onOpenChat: () -> Unit) {
+private fun CarrierRideCard(ride: Ride, viewModel: CarrierViewModel, onOpenChat: () -> Unit) {
     val context = LocalContext.current
     Card(modifier = Modifier.fillMaxWidth()) {
         Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            when (ride.orderType) {
-                OrderType.DELIVERY -> Text("Доставка", color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
-                OrderType.CARGO -> Text("Груз", color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
-                OrderType.RIDE -> {}
-            }
             Text("${ride.fromAddress} → ${ride.toAddress}", fontWeight = FontWeight.Bold)
             Text("Заказ: ${ride.price.total.toInt()} ₽ · Вам: ${ride.price.driverPayout.toInt()} ₽ · ${ride.paymentMethod.label}")
             if (ride.paymentMethod == PaymentMethod.CLICK) {
                 Text(
-                    "Пассажир увидит ваш Click-номер из профиля для перевода.",
+                    "Заказчик увидит ваш Click-номер из профиля для перевода.",
                     style = MaterialTheme.typography.bodySmall
                 )
             }
             ride.passengerPhone?.let { phone ->
                 TextButton(onClick = { context.startActivity(Intent(Intent.ACTION_DIAL, Uri.parse("tel:$phone"))) }) {
-                    Text("Позвонить пассажиру${ride.passengerName?.let { " ($it)" } ?: ""}: $phone")
+                    Text("Позвонить заказчику${ride.passengerName?.let { " ($it)" } ?: ""}: $phone")
                 }
             }
             TextButton(onClick = onOpenChat) {
-                Text("Чат с пассажиром")
+                Text("Чат с заказчиком")
             }
-            if (ride.orderType == OrderType.DELIVERY) {
-                ride.senderPhone?.let { Text("Телефон отправителя: $it", style = MaterialTheme.typography.bodySmall) }
-                ride.receiverPhone?.let { Text("Телефон получателя: $it", style = MaterialTheme.typography.bodySmall) }
-            }
-            if (ride.orderType == OrderType.CARGO) {
-                ride.cargoDescription?.let { Text("Груз: $it", style = MaterialTheme.typography.bodySmall) }
-                ride.cargoWeightKg?.let { Text("Вес: ${it} кг", style = MaterialTheme.typography.bodySmall) }
-            }
+            ride.cargoDescription?.let { Text("Груз: $it", style = MaterialTheme.typography.bodySmall) }
+            ride.cargoWeightKg?.let { Text("Вес: $it кг", style = MaterialTheme.typography.bodySmall) }
             when (ride.status) {
                 RideStatus.ACCEPTED -> Button(
                     onClick = { viewModel.start(ride.id) },
                     modifier = Modifier.fillMaxWidth()
-                ) { Text("Начать поездку") }
+                ) { Text("Начать перевозку") }
                 RideStatus.IN_PROGRESS -> Button(
                     onClick = { viewModel.complete(ride.id) },
                     modifier = Modifier.fillMaxWidth()
-                ) { Text("Завершить поездку") }
+                ) { Text("Завершить перевозку") }
                 else -> {}
             }
         }

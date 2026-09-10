@@ -77,7 +77,13 @@ fun ProfileScreen(viewModel: ProfileViewModel, onBack: () -> Unit, onAccountDele
             }
             viewModel.role?.let {
                 Text(
-                    "Роль: ${if (it == "driver") "Водитель" else "Пассажир"}",
+                    "Роль: ${
+                        when (it) {
+                            "driver" -> "Водитель"
+                            "carrier" -> "Перевозчик"
+                            else -> "Пассажир"
+                        }
+                    }",
                     style = MaterialTheme.typography.bodySmall
                 )
             }

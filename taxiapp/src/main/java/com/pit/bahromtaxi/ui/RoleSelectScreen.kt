@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.DirectionsCar
+import androidx.compose.material.icons.filled.LocalShipping
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -27,7 +28,7 @@ import androidx.compose.ui.unit.dp
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun RoleSelectScreen(onSelectClient: () -> Unit, onSelectDriver: () -> Unit) {
+fun RoleSelectScreen(onSelectClient: () -> Unit, onSelectDriver: () -> Unit, onSelectCarrier: () -> Unit) {
     Scaffold { padding ->
         Column(
             modifier = Modifier
@@ -62,6 +63,15 @@ fun RoleSelectScreen(onSelectClient: () -> Unit, onSelectDriver: () -> Unit) {
                 Icon(Icons.Filled.DirectionsCar, contentDescription = null)
                 Spacer(Modifier.width(8.dp))
                 Text("Я водитель")
+            }
+            Spacer(Modifier.height(16.dp))
+            OutlinedButton(
+                onClick = onSelectCarrier,
+                modifier = Modifier.fillMaxWidth().height(56.dp)
+            ) {
+                Icon(Icons.Filled.LocalShipping, contentDescription = null)
+                Spacer(Modifier.width(8.dp))
+                Text("Я перевозчик (грузы)")
             }
         }
     }

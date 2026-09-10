@@ -12,6 +12,8 @@ import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.pit.bahromtaxi.ui.BahromTaxiTheme
 import com.pit.bahromtaxi.ui.RoleSelectScreen
+import com.pit.bahromtaxi.ui.carrier.CarrierScreen
+import com.pit.bahromtaxi.ui.carrier.CarrierViewModel
 import com.pit.bahromtaxi.ui.chat.ChatScreen
 import com.pit.bahromtaxi.ui.chat.ChatViewModel
 import com.pit.bahromtaxi.ui.client.ClientScreen
@@ -34,7 +36,8 @@ class MainActivity : ComponentActivity() {
                     composable("role") {
                         RoleSelectScreen(
                             onSelectClient = { navController.navigate("client") },
-                            onSelectDriver = { navController.navigate("driver") }
+                            onSelectDriver = { navController.navigate("driver") },
+                            onSelectCarrier = { navController.navigate("carrier") }
                         )
                     }
                     composable("client") {
@@ -50,6 +53,16 @@ class MainActivity : ComponentActivity() {
                     composable("driver") {
                         val vm: DriverViewModel = viewModel()
                         DriverScreen(
+                            viewModel = vm,
+                            onBack = { navController.popBackStack() },
+                            onOpenProfile = { navController.navigate("profile") },
+                            onOpenHistory = { navController.navigate("history") },
+                            onOpenChat = { rideId -> navController.navigate("chat/$rideId") }
+                        )
+                    }
+                    composable("carrier") {
+                        val vm: CarrierViewModel = viewModel()
+                        CarrierScreen(
                             viewModel = vm,
                             onBack = { navController.popBackStack() },
                             onOpenProfile = { navController.navigate("profile") },
